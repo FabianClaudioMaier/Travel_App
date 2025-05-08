@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "map-search-app",
+    "slug": "map-search-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.belegen.navigationnew",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Wir benötigen deinen Standort, um die Route vom aktuellen Punkt aus zu berechnen."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.belegen.navigationnew",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "5c147dfb-40d3-4b54-9d5a-d989e41ed7c1"
+      }
+    },
+    "owner": "Fabian Maier"
+  }
+}
