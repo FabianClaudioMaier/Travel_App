@@ -15,86 +15,103 @@ import * as Location from 'expo-location';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation } from '@react-navigation/native';
 
-// Neue JSON-Datei mit Regionen, Städten und Flughafencodes
-import regionData from '../assets/regions.json';
+// aus regions.json holen wir jetzt ein Objekt mit zwei Feldern:
+// - regions: [ { city, region, airport }, … ]
+// - airportCoordinates: { BCN: {latitude,…}, … }
+import regionsData from '../assets/regions.json';
+const { regions, airportCoordinates } = regionsData;
 
-// Mappe die flat JSON zu einem Region -> [{ city, airport }] Objekt
-const regionStopsMap = regionData.reduce((acc, { region, city, airport }) => {
-  acc[region] = acc[region] || [];
+// map Region → Stops (Stadt + Airport-Code)
+const regionStopsMap = regions.reduce((acc, { region, city, airport }) => {
+  if (!acc[region]) acc[region] = [];
   acc[region].push({ city, airport });
   return acc;
 }, {});
 
-// Unterstützte Verkehrsmittel (Fußweg entfernt)
+// Verkehrsmittel
 const MODES = [
-  { key: 'driving', label: 'Auto' },
-  { key: 'bicycling', label: 'Fahrrad' },
-  { key: 'transit', label: 'Zug/Bus' },
-  { key: 'flight', label: 'Flug' }
+  { key: 'driving',   label: 'Auto'      },
+  { key: 'bicycling', label: 'Fahrrad'   },
+  { key: 'transit',   label: 'Zug/Bus'   },
+  { key: 'flight',    label: 'Flug'      }
 ];
 
-const OVERRIDE_CITY = 'Vienna'; // Hier gewünschten Emulator-Stadt-Namen setzen
+const OVERRIDE_CITY = 'Vienna';
 
 export default function HomeScreen() {
   const nav = useNavigation();
 
-  // Schritt-Steuerung
+  // --- State für die Schritte, Datum, Modi, Stops etc. (unverändert) ---
   const [step, setStep] = useState(1);
-
-  // Standort & Umgebungsort
   const [locationLoading, setLocationLoading] = useState(true);
   const [startCity, setStartCity] = useState(null);
-
-  // Region & Stopps
-  const regions = Object.keys(regionStopsMap);
-  const [queryRegion, setQueryRegion] = useState('');
+  const regionsList = Object.keys(regionStopsMap);
+  const [queryRegion, setQueryRegion]     = useState('');
   const [selectedRegion, setSelectedRegion] = useState(null);
-  const [queryStop, setQueryStop] = useState('');
-  const [selectedStop, setSelectedStop] = useState(null);
-  const [stops, setStops] = useState([]); // Array von { city, airport }
-
-  // Daten und Picker
-  const [startDate, setStartDate] = useState(new Date());
+  const [queryStop, setQueryStop]         = useState('');
+  const [selectedStop, setSelectedStop]   = useState(null);
+  const [stops, setStops]                 = useState([]);
+  const [startDate, setStartDate]         = useState(new Date());
   const [showStartPicker, setShowStartPicker] = useState(false);
-  const [endDate, setEndDate] = useState(new Date());
+  const [endDate, setEndDate]             = useState(new Date());
   const [showEndPicker, setShowEndPicker] = useState(false);
-
-  // Modi
   const [selectedModes, setSelectedModes] = useState([]);
+  const [originAirport, setOriginAirport]         = useState(null);
+  const [destinationAirport, setDestinationAirport] = useState(null);
 
-  // Beim Mount: Standort-Permission & Reverse-Geocode
-  useEffect(() => {
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Erlaubnis benötigt', 'Standortzugriff ist erforderlich.');
-        return;
-      }
+  const findAirport = city => {
+    const entry = regions.find(r => r.city === city);
+    return entry?.airport || 'VIE';  // Fallback: VIE
+  };
+
+useEffect(() => {
+  (async () => {
+    // 1) Permissions
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Erlaubnis benötigt', 'Standortzugriff ist erforderlich.');
+      setLocationLoading(false);       // ← unbedingt freigeben!
+      setStartCity(OVERRIDE_CITY);     // oder ein Fallback
+      const code = findAirport(OVERRIDE_CITY);
+      setOriginAirport(code);
+      setDestinationAirport(code);
+      return;
+    }
+
+    // 2) Position holen
+    let city = OVERRIDE_CITY;          // Standard-Fallback
+    try {
       const loc = await Location.getCurrentPositionAsync({});
-      try {
-        const rev = await Location.reverseGeocodeAsync({
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude
-        });
-        let city = rev[0]?.city || rev[0]?.region || rev[0]?.subregion || 'Unbekannter Ort';
-        if (city === 'Mountain View') city = OVERRIDE_CITY;
-        setStartCity(city);
-      } catch {
-        setStartCity(OVERRIDE_CITY);
-      }
-      setLocationLoading(false);
-    })();
-  }, []);
+      const rev = await Location.reverseGeocodeAsync(loc.coords);
+      city = rev[0]?.city
+          || rev[0]?.region
+          || rev[0]?.subregion
+          || OVERRIDE_CITY;
+      if (city === 'Mountain View') city = OVERRIDE_CITY;
+    } catch (e) {
+      // city bleibt OVERRIDE_CITY
+    }
 
-  // Handler für DatePicker
+    // 3) State setzen
+    setStartCity(city);
+    const code = findAirport(city);
+    setOriginAirport(code);
+    setDestinationAirport(code);
+    setLocationLoading(false);
+  })();
+}, []);
+
+  // DatePicker-Handler (unverändert)
   const onChangeStart = (e, date) => { setShowStartPicker(false); if (date) setStartDate(date); };
   const onChangeEnd   = (e, date) => { setShowEndPicker(false);   if (date) setEndDate(date);   };
 
+  // Modus umschalten
   const toggleMode = key =>
     setSelectedModes(prev =>
       prev.includes(key) ? prev.filter(m => m !== key) : [...prev, key]
     );
 
+  // Stops hinzufügen/entfernen
   const addStop = () => {
     if (selectedStop && !stops.find(s => s.city === selectedStop.city) && stops.length < 5) {
       setStops([...stops, selectedStop]);
@@ -102,65 +119,58 @@ export default function HomeScreen() {
       setSelectedStop(null);
     }
   };
-  const removeStop = stopCity =>
-    setStops(stops.filter(s => s.city !== stopCity));
+  const removeStop = city => setStops(stops.filter(s => s.city !== city));
 
-  // Suggestions
-  const suggestionsRegion = regions
-    .filter(r => r.toLowerCase().includes(queryRegion.trim().toLowerCase()));
+  // Vorschlags-Listen für Regions & Stops
+  const suggestionsRegion = regionsList.filter(r =>
+    r.toLowerCase().includes(queryRegion.trim().toLowerCase())
+  );
   const suggestionsStop = selectedRegion
-    ? regionStopsMap[selectedRegion]
-        .filter(({ city }) => city.toLowerCase().includes(queryStop.trim().toLowerCase()))
+    ? regionStopsMap[selectedRegion].filter(({ city }) =>
+        city.toLowerCase().includes(queryStop.trim().toLowerCase())
+      )
     : [];
 
-  // Navigation
+  // Schritt-Freigaben
   const canNext = () => {
     switch (step) {
       case 1: return !!selectedRegion;
       case 2: return !!startDate;
       case 3: return !!endDate;
       case 4: return selectedModes.length > 0;
-      case 5: return stops.length >= 1;
+      case 5: return stops.length > 0;
       default: return true;
     }
   };
 
+  // Weiter-Button
   const onNext = () => {
     if (step < 6) {
       setStep(step + 1);
       return;
     }
 
-    // Bereite Payload für Result vor
+    // Basispayload
     const payload = {
-      origin: startCity,
+      origin:      startCity,
+      stops:       stops.map(s => s.city),
       destination: startCity,
-      modes: selectedModes,
-      start_date: startDate.toISOString(),
-      end_date: endDate.toISOString(),
-      stops: stops.map(s => s.city)
+      modes:       selectedModes,
+      originAirport,
+      destinationAirport,
+      stopsAirport: stops.map(s => findAirport(s.city)),
+      airportCoordinates
     };
-
-    if (selectedModes.includes('flight')) {
-      // Airportcodes hinzufügen
-      const findAirport = city => {
-        const entry = regionData.find(e => e.city === city);
-        return entry ? entry.airport : null;
-      };
-      payload.originAirport      = findAirport(startCity);
-      payload.destinationAirport = payload.originAirport;
-      payload.stopsAirport       = stops.map(s => s.airport || findAirport(s.city));
-    }
-
     nav.navigate('Result', payload);
   };
+
   const onBack = () => step > 1 && setStep(step - 1);
 
   if (locationLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" />
-        <Text style={styles.loadingText}>Warte kurz, Standort wird ermittelt...</Text>
+        <Text style={styles.loadingText}>Standort wird ermittelt...</Text>
       </View>
     );
   }
