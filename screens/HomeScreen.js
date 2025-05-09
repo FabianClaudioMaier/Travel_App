@@ -14,9 +14,18 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view
 import * as Location from 'expo-location';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation } from '@react-navigation/native';
-import regionStopsMap from '../assets/regions.json';
 
-// Unterstützte Verkehrsmittel ("Fußweg" entfernt)
+// Neue JSON-Datei mit Regionen, Städten und Flughafencodes
+import regionData from '../assets/regions.json';
+
+// Mappe die flat JSON zu einem Region -> [{ city, airport }] Objekt
+const regionStopsMap = regionData.reduce((acc, { region, city, airport }) => {
+  acc[region] = acc[region] || [];
+  acc[region].push({ city, airport });
+  return acc;
+}, {});
+
+// Unterstützte Verkehrsmittel (Fußweg entfernt)
 const MODES = [
   { key: 'driving', label: 'Auto' },
   { key: 'bicycling', label: 'Fahrrad' },
@@ -24,38 +33,37 @@ const MODES = [
   { key: 'flight', label: 'Flug' }
 ];
 
-const OVERRIDE_CITY = 'Vienna';  // hier Deinen gewünschten Namen setzen
+const OVERRIDE_CITY = 'Vienna'; // Hier gewünschten Emulator-Stadt-Namen setzen
 
 export default function HomeScreen() {
   const nav = useNavigation();
 
-  // Step state
+  // Schritt-Steuerung
   const [step, setStep] = useState(1);
 
-  // Loading and location
+  // Standort & Umgebungsort
   const [locationLoading, setLocationLoading] = useState(true);
-  const [selectedStart, setSelectedStart] = useState(null);
   const [startCity, setStartCity] = useState(null);
 
-  // Region & Stops
+  // Region & Stopps
   const regions = Object.keys(regionStopsMap);
   const [queryRegion, setQueryRegion] = useState('');
   const [selectedRegion, setSelectedRegion] = useState(null);
   const [queryStop, setQueryStop] = useState('');
   const [selectedStop, setSelectedStop] = useState(null);
-  const [stops, setStops] = useState([]);
+  const [stops, setStops] = useState([]); // Array von { city, airport }
 
-  // Dates
+  // Daten und Picker
   const [startDate, setStartDate] = useState(new Date());
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [endDate, setEndDate] = useState(new Date());
   const [showEndPicker, setShowEndPicker] = useState(false);
 
-  // Modes
+  // Modi
   const [selectedModes, setSelectedModes] = useState([]);
 
-  // Request permission and reverse-geocode city on mount
-useEffect(() => {
+  // Beim Mount: Standort-Permission & Reverse-Geocode
+  useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
@@ -63,103 +71,91 @@ useEffect(() => {
         return;
       }
       const loc = await Location.getCurrentPositionAsync({});
-      setSelectedStart({
-        latitude: loc.coords.latitude,
-        longitude: loc.coords.longitude
-      });
-
       try {
         const rev = await Location.reverseGeocodeAsync({
           latitude: loc.coords.latitude,
           longitude: loc.coords.longitude
         });
-        // nimm zuerst city, dann region/subregion als Fallback
-        let city = rev[0]?.city
-                || rev[0]?.region
-                || rev[0]?.subregion
-                || 'Unbekannter Ort';
-
-        // überschreibe, falls der Emulator-Default kommt
-        if (city === 'Mountain View') {
-          city = OVERRIDE_CITY;
-        }
-
+        let city = rev[0]?.city || rev[0]?.region || rev[0]?.subregion || 'Unbekannter Ort';
+        if (city === 'Mountain View') city = OVERRIDE_CITY;
         setStartCity(city);
-      } catch (e) {
-        console.warn('Reverse geocode failed', e);
+      } catch {
         setStartCity(OVERRIDE_CITY);
       }
-
       setLocationLoading(false);
     })();
   }, []);
 
-  // Handlers
-  const onChangeStart = (e, date) => {
-    setShowStartPicker(false);
-    if (date) setStartDate(date);
-  };
-  const onChangeEnd = (e, date) => {
-    setShowEndPicker(false);
-    if (date) setEndDate(date);
-  };
+  // Handler für DatePicker
+  const onChangeStart = (e, date) => { setShowStartPicker(false); if (date) setStartDate(date); };
+  const onChangeEnd   = (e, date) => { setShowEndPicker(false);   if (date) setEndDate(date);   };
+
   const toggleMode = key =>
     setSelectedModes(prev =>
       prev.includes(key) ? prev.filter(m => m !== key) : [...prev, key]
     );
+
   const addStop = () => {
-    if (selectedStop && !stops.includes(selectedStop) && stops.length < 5) {
+    if (selectedStop && !stops.find(s => s.city === selectedStop.city) && stops.length < 5) {
       setStops([...stops, selectedStop]);
       setQueryStop('');
       setSelectedStop(null);
     }
   };
-  const removeStop = stop => setStops(stops.filter(s => s !== stop));
+  const removeStop = stopCity =>
+    setStops(stops.filter(s => s.city !== stopCity));
 
   // Suggestions
-  const suggestionsRegion = regions.filter(r =>
-    r.toLowerCase().includes(queryRegion.trim().toLowerCase())
-  );
+  const suggestionsRegion = regions
+    .filter(r => r.toLowerCase().includes(queryRegion.trim().toLowerCase()));
   const suggestionsStop = selectedRegion
-    ? regionStopsMap[selectedRegion].filter(s =>
-        s.toLowerCase().includes(queryStop.trim().toLowerCase())
-      )
+    ? regionStopsMap[selectedRegion]
+        .filter(({ city }) => city.toLowerCase().includes(queryStop.trim().toLowerCase()))
     : [];
 
-  // Navigation logic
+  // Navigation
   const canNext = () => {
     switch (step) {
-      case 1:
-        return !!startCity;
-      case 2:
-        return !!startDate;
-      case 3:
-        return !!endDate;
-      case 4:
-        return selectedModes.length > 0;
-      case 5:
-        return stops.length >= 1;
-      case 6:
-        return true;
-      default:
-        return false;
+      case 1: return !!selectedRegion;
+      case 2: return !!startDate;
+      case 3: return !!endDate;
+      case 4: return selectedModes.length > 0;
+      case 5: return stops.length >= 1;
+      default: return true;
     }
   };
+
   const onNext = () => {
-    if (step < 6) setStep(step + 1);
-    else
-      nav.navigate('Result', {
-        origin: startCity,
-        stops,
-        modes: selectedModes,
-        start_date: startDate.toISOString(),
-        end_date: endDate.toISOString(),
-        destination: startCity
-      });
+    if (step < 6) {
+      setStep(step + 1);
+      return;
+    }
+
+    // Bereite Payload für Result vor
+    const payload = {
+      origin: startCity,
+      destination: startCity,
+      modes: selectedModes,
+      start_date: startDate.toISOString(),
+      end_date: endDate.toISOString(),
+      stops: stops.map(s => s.city)
+    };
+
+    if (selectedModes.includes('flight')) {
+      // Airportcodes hinzufügen
+      const findAirport = city => {
+        const entry = regionData.find(e => e.city === city);
+        return entry ? entry.airport : null;
+      };
+      payload.originAirport      = findAirport(startCity);
+      payload.destinationAirport = payload.originAirport;
+      payload.stopsAirport       = stops.map(s => s.airport || findAirport(s.city));
+    }
+
+    nav.navigate('Result', payload);
   };
   const onBack = () => step > 1 && setStep(step - 1);
 
-  // Block rendering until location loaded
   if (locationLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -191,7 +187,10 @@ useEffect(() => {
           {queryRegion.length > 0 && (
             <View style={styles.dropdown}>
               {suggestionsRegion.map(item => (
-                <TouchableOpacity key={item} onPress={() => { setQueryRegion(item); setSelectedRegion(item); }}>
+                <TouchableOpacity
+                  key={item}
+                  onPress={() => { setQueryRegion(item); setSelectedRegion(item); }}
+                >
                   <Text style={styles.item}>{item}</Text>
                 </TouchableOpacity>
               ))}
@@ -254,9 +253,12 @@ useEffect(() => {
               onChangeText={t => { setQueryStop(t); setSelectedStop(null); }}
             />
             <Pressable
-              style={[styles.addButton, (!selectedStop || stops.includes(selectedStop) || stops.length >= 5) && styles.buttonDisabled]}
+              style={[styles.addButton,
+                (!selectedStop || stops.find(s => s.city === selectedStop.city) || stops.length >= 5)
+                && styles.buttonDisabled
+              ]}
               onPress={addStop}
-              disabled={!selectedStop || stops.includes(selectedStop) || stops.length >= 5}
+              disabled={!selectedStop || stops.find(s => s.city === selectedStop.city) || stops.length >= 5}
             >
               <Text style={styles.addText}>+</Text>
             </Pressable>
@@ -264,8 +266,11 @@ useEffect(() => {
           {queryStop.length > 0 && (
             <View style={styles.dropdown}>
               {suggestionsStop.map(item => (
-                <TouchableOpacity key={item} onPress={() => { setQueryStop(item); setSelectedStop(item); }}>
-                  <Text style={styles.item}>{item}</Text>
+                <TouchableOpacity
+                  key={item.city}
+                  onPress={() => { setQueryStop(item.city); setSelectedStop(item); }}
+                >
+                  <Text style={styles.item}>{item.city}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -274,8 +279,8 @@ useEffect(() => {
             <View style={styles.stopsContainer}>
               {stops.map((stop, i) => (
                 <View key={i} style={styles.stopItem}>
-                  <Text style={styles.stopText}>{stop}</Text>
-                  <TouchableOpacity onPress={() => removeStop(stop)}>
+                  <Text style={styles.stopText}>{stop.city}</Text>
+                  <TouchableOpacity onPress={() => removeStop(stop.city)}>
                     <Text style={styles.removeText}>✕</Text>
                   </TouchableOpacity>
                 </View>
@@ -307,13 +312,13 @@ useEffect(() => {
             </Pressable>
           </View>
           <View style={styles.summaryItem}>
-            <Text>Verkehrsmodi: {selectedModes.map(m => MODES.find(x => x.key===m).label).join(', ')}</Text>
+            <Text>Verkehrsmodi: {selectedModes.map(m => MODES.find(x => x.key === m).label).join(', ')}</Text>
             <Pressable style={styles.editButton} onPress={() => setStep(4)}>
               <Text style={styles.editText}>Bearbeiten</Text>
             </Pressable>
           </View>
           <View style={styles.summaryItem}>
-            <Text>Stopps: {stops.join(', ')}</Text>
+            <Text>Stopps: {stops.map(s => s.city).join(', ')}</Text>
             <Pressable style={styles.editButton} onPress={() => setStep(5)}>
               <Text style={styles.editText}>Bearbeiten</Text>
             </Pressable>
@@ -341,161 +346,33 @@ useEffect(() => {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-    backgroundColor: '#fff'
-  },
-  contentContainer: {
-    paddingBottom: 40
-  },
-  stepText: {
-    fontSize: 14,
-    color: '#666',
-    alignSelf: 'center',
-    marginBottom: 8
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    padding: 8,
-    borderRadius: 4
-  },
-  modesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 8
-  },
-  modeItem: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: '#eee',
-    borderRadius: 20,
-    margin: 4
-  },
-  modeSelected: {
-    backgroundColor: '#007AFF'
-  },
-  modeText: {
-    color: '#333'
-  },
-  modeTextSelected: {
-    color: '#fff'
-  },
-  dropdown: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 4,
-    backgroundColor: '#fafafa',
-    marginTop: 4
-  },
-  item: {
-    padding: 8,
-    borderBottomWidth: 1,
-    borderColor: '#eee'
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4
-  },
-  addButton: {
-    marginLeft: 8,
-    backgroundColor: '#007AFF',
-    padding: 12,
-    borderRadius: 4,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  addText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600'
-  },
-  stopsContainer: {
-    marginTop: 12,
-    flexDirection: 'row',
-    flexWrap: 'wrap'
-  },
-  stopItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#eef',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4,
-    margin: 4
-  },
-  stopText: {
-    marginRight: 6,
-    color: '#333'
-  },
-  removeText: {
-    color: '#900',
-    fontWeight: '600'
-  },
-  navContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 24
-  },
-  navButton: {
-    backgroundColor: '#007AFF',
-    padding: 14,
-    borderRadius: 6,
-    alignItems: 'center',
-    flex: 1,
-    marginHorizontal: 4
-  },
-  buttonDisabled: {
-    backgroundColor: '#aaa'
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600'
-  },
-  summaryContainer: {
-    marginTop: 16,
-    padding: 12,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 6
-  },
-  summaryTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 8
-  },
-  summaryItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6
-  },
-  editButton: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderWidth: 1,
-    borderColor: '#007AFF',
-    borderRadius: 4
-  },
-  editText: {
-    color: '#007AFF',
-    fontWeight: '600'
-  },
-  loadingContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center'
-  },
-  loadingText: {
-      marginTop: 12,
-      fontSize: 16,
-      color: '#666'
-  }
+  container: { flex: 1, padding: 16, backgroundColor: '#fff' },
+  stepText: { fontSize: 14, color: '#666', alignSelf: 'center', marginBottom: 8 },
+  label: { fontSize: 16, fontWeight: '600', marginBottom: 4 },
+  input: { borderWidth: 1, borderColor: '#ccc', padding: 8, borderRadius: 4 },
+  modesContainer: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },
+  modeItem: { paddingVertical: 6, paddingHorizontal: 12, backgroundColor: '#eee', borderRadius: 20, margin: 4 },
+  modeSelected: { backgroundColor: '#007AFF' },
+  modeText: { color: '#333' },
+  modeTextSelected: { color: '#fff' },
+  dropdown: { borderWidth: 1, borderColor: '#ccc', borderRadius: 4, backgroundColor: '#fafafa', marginTop: 4 },
+  item: { padding: 8, borderBottomWidth: 1, borderColor: '#eee' },
+  row: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+  addButton: { marginLeft: 8, backgroundColor: '#007AFF', padding: 12, borderRadius: 4, alignItems: 'center', justifyContent: 'center' },
+  addText: { color: '#fff', fontSize: 18, fontWeight: '600' },
+  stopsContainer: { marginTop: 12, flexDirection: 'row', flexWrap: 'wrap' },
+  stopItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#eef', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 4, margin: 4 },
+  stopText: { marginRight: 6, color: '#333' },
+  removeText: { color: '#900', fontWeight: '600' },
+  navContainer: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 24 },
+  navButton: { backgroundColor: '#007AFF', padding: 14, borderRadius: 6, alignItems: 'center', flex: 1, marginHorizontal: 4 },
+  buttonDisabled: { backgroundColor: '#aaa' },
+  buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  summaryContainer: { marginTop: 16, padding: 12, backgroundColor: '#f5f5f5', borderRadius: 6 },
+  summaryTitle: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
+  summaryItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  editButton: { paddingVertical: 4, paddingHorizontal: 8, borderWidth: 1, borderColor: '#007AFF', borderRadius: 4 },
+  editText: { color: '#007AFF', fontWeight: '600' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { marginTop: 12, fontSize: 16, color: '#666' }
 });
