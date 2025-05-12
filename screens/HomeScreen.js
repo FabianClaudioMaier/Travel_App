@@ -8,12 +8,44 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
-  Platform
+  Platform,
+  Dimensions,
+  Image,
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import * as Location from 'expo-location';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation } from '@react-navigation/native';
+import Swiper from 'react-native-swiper';
+
+// Device dimensions for responsive layout
+const { width, height } = Dimensions.get('window');
+
+// Background images and their descriptions for the carousel
+const bgImages = [
+  require('../assets/beach.webp'),
+  require('../assets/countryside.webp'),
+  require('../assets/greek-coast-sunshine.webp'),
+  require('../assets/mountain-scenery-morning-sun-rays-4k.jpg'),
+];
+const bgImagesDescription = [
+  {
+    title: 'Hydria (Ancient Greek: 515-500 BCE)',
+    text:  'This large handled jar held the water used to dilute large quantities of wine in preparation for the Greek symposium.',
+  },
+  {
+    title: 'Beach at Cabassone (Henri Edmon Cross: 1891-92)',
+    text:  'In 1891, as a result of his rheumatoid arthritis, Henri Edmond Cross moved to Cabasson on the Côte d\'Azur and embraced scientific Impressionism.',
+  },
+  {
+    title: 'American Gothic (Grant Wood: 1930)',
+    text:  'Grant Wood evoked images of an earlier generation by featuring a farmer and his daughter as if in tintypes.',
+  },
+  {
+    title: 'It Was Yellow and Pink III (Georgia O\'Keeffe: 1960)',
+    text:  'With its sinuous lines of yellow against a pink backdrop, this painting captures the artist\'s view from an airplane window.',
+  }
+];
 
 // aus regions.json holen wir jetzt ein Objekt mit zwei Feldern:
 // - regions: [ { city, region, airport }, … ]
@@ -30,8 +62,8 @@ const regionStopsMap = regions.reduce((acc, { region, city, airport }) => {
 
 // Verkehrsmittel
 const MODES = [
-  { key: 'driving',   label: 'Auto'      },
-  { key: 'bicycling', label: 'Fahrrad'   },
+  //{ key: 'driving',   label: 'Auto'      },
+  //{ key: 'bicycling', label: 'Fahrrad'   },
   { key: 'transit',   label: 'Zug/Bus'   },
   { key: 'flight',    label: 'Flug'      }
 ];
@@ -58,6 +90,8 @@ export default function HomeScreen() {
   const [selectedModes, setSelectedModes] = useState([]);
   const [originAirport, setOriginAirport]         = useState(null);
   const [destinationAirport, setDestinationAirport] = useState(null);
+  const [showEndDate, setShowEndDate] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
 
   const findAirport = city => {
     const entry = regions.find(r => r.city === city);
@@ -135,17 +169,16 @@ useEffect(() => {
   const canNext = () => {
     switch (step) {
       case 1: return !!selectedRegion;
-      case 2: return !!startDate;
-      case 3: return !!endDate;
-      case 4: return selectedModes.length > 0;
-      case 5: return stops.length > 0;
+      case 2: return !!endDate;
+      case 3: return selectedModes.length > 0;
+      case 4: return stops.length > 0;
       default: return true;
     }
   };
 
   // Weiter-Button
   const onNext = () => {
-    if (step < 6) {
+    if (step < 5) {
       setStep(step + 1);
       return;
     }
@@ -178,188 +211,205 @@ useEffect(() => {
   return (
     <KeyboardAwareScrollView
       style={styles.container}
-      contentContainerStyle={{ paddingBottom: 40 }}
+      contentContainerStyle={{flexGrow: 1, paddingBottom: 40 }}
       enableOnAndroid
       extraScrollHeight={Platform.OS === 'ios' ? 20 : 60}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.stepText}>Schritt {step} von 6</Text>
-
-      {step === 1 && (
-        <>
-          <Text style={styles.label}>Region auswählen:</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Region eingeben..."
-            value={queryRegion}
-            onChangeText={t => { setQueryRegion(t); setSelectedRegion(null); }}
-          />
-          {queryRegion.length > 0 && (
-            <View style={styles.dropdown}>
-              {suggestionsRegion.map(item => (
-                <TouchableOpacity
-                  key={item}
-                  onPress={() => { setQueryRegion(item); setSelectedRegion(item); }}
-                >
-                  <Text style={styles.item}>{item}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        </>
-      )}
-
-      {step === 2 && (
-        <>
-          <Text style={styles.label}>Startdatum:</Text>
-          <Pressable style={styles.input} onPress={() => setShowStartPicker(true)}>
-            <Text>{startDate.toLocaleDateString()}</Text>
-          </Pressable>
-          {showStartPicker && (
-            <DateTimePicker value={startDate} mode="date" display="default" onChange={onChangeStart} />
-          )}
-        </>
-      )}
-
-      {step === 3 && (
-        <>
-          <Text style={styles.label}>Enddatum:</Text>
-          <Pressable style={styles.input} onPress={() => setShowEndPicker(true)}>
-            <Text>{endDate.toLocaleDateString()}</Text>
-          </Pressable>
-          {showEndPicker && (
-            <DateTimePicker value={endDate} mode="date" display="default" onChange={onChangeEnd} />
-          )}
-        </>
-      )}
-
-      {step === 4 && (
-        <>
-          <Text style={styles.label}>Verkehrsmodi:</Text>
-          <View style={styles.modesContainer}>
-            {MODES.map(m => (
-              <TouchableOpacity
-                key={m.key}
-                style={[styles.modeItem, selectedModes.includes(m.key) && styles.modeSelected]}
-                onPress={() => toggleMode(m.key)}
-              >
-                <Text style={[styles.modeText, selectedModes.includes(m.key) && styles.modeTextSelected]}>
-                  {m.label}
+      {/* Background carousel */}
+      <View style={styles.backgroundSwiper}>
+        <Swiper autoplay autoplayTimeout={5} showsPagination={false} loop>
+          {bgImages.map((img, index) => (
+            <View key={index} style={styles.slide}>
+              <Image source={img} style={styles.backgroundImage} resizeMode="cover" />
+              <View style={styles.descriptionOverlay}>
+                <Text style={styles.descriptionTitle}>
+                  {bgImagesDescription[index].title}
                 </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </>
-      )}
-
-      {step === 5 && (
-        <>
-          <Text style={styles.label}>Stopps in {selectedRegion}:</Text>
-          <View style={styles.row}>
-            <TextInput
-              style={[styles.input, { flex: 1 }]}
-              placeholder="Stopp eingeben..."
-              value={queryStop}
-              onChangeText={t => { setQueryStop(t); setSelectedStop(null); }}
-            />
-            <Pressable
-              style={[styles.addButton,
-                (!selectedStop || stops.find(s => s.city === selectedStop.city) || stops.length >= 5)
-                && styles.buttonDisabled
-              ]}
-              onPress={addStop}
-              disabled={!selectedStop || stops.find(s => s.city === selectedStop.city) || stops.length >= 5}
-            >
-              <Text style={styles.addText}>+</Text>
-            </Pressable>
-          </View>
-          {queryStop.length > 0 && (
-            <View style={styles.dropdown}>
-              {suggestionsStop.map(item => (
-                <TouchableOpacity
-                  key={item.city}
-                  onPress={() => { setQueryStop(item.city); setSelectedStop(item); }}
-                >
-                  <Text style={styles.item}>{item.city}</Text>
-                </TouchableOpacity>
-              ))}
+                <Text style={styles.descriptionText}>
+                  {bgImagesDescription[index].text}
+                </Text>
+              </View>
             </View>
-          )}
-          {stops.length > 0 && (
-            <View style={styles.stopsContainer}>
-              {stops.map((stop, i) => (
-                <View key={i} style={styles.stopItem}>
-                  <Text style={styles.stopText}>{stop.city}</Text>
-                  <TouchableOpacity onPress={() => removeStop(stop.city)}>
-                    <Text style={styles.removeText}>✕</Text>
-                  </TouchableOpacity>
+          ))}
+        </Swiper>
+      </View>
+
+        <View style={styles.stepsContainer}>
+          <Text style={styles.stepText}>Schritt {step} von 5</Text>
+
+          {step === 1 && (
+            <>
+              <Text style={styles.label}>Region auswählen:</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Region eingeben..."
+                value={queryRegion}
+                onChangeText={t => { setQueryRegion(t); setSelectedRegion(null); setShowDropdown(true)}}
+              />
+              {queryRegion.length > 0 && showDropdown && (
+                <View style={styles.dropdown}>
+                  {suggestionsRegion.map(item => (
+                    <TouchableOpacity
+                      key={item}
+                      onPress={() => { setQueryRegion(item); setSelectedRegion(item); setShowDropdown(false)}}
+                    >
+                      <Text style={styles.item}>{item}</Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
-              ))}
+              )}
+            </>
+          )}
+
+          {step === 2 && (
+            <>
+              <Text style={styles.label}>Startdatum:</Text>
+              <Pressable style={styles.input} onPress={() => setShowStartPicker(true)}>
+                <Text>{startDate.toLocaleDateString()}</Text>
+              </Pressable>
+              {showStartPicker && (
+                <DateTimePicker value={startDate} mode="date" display="default" onChange={onChangeStart} />
+              )}
+              <View style={styles.padding}></View>
+              <Text style={styles.label}>Enddatum:</Text>
+              <Pressable style={styles.input} onPress={() => setShowEndPicker(true)}>
+                <Text>{endDate.toLocaleDateString()}</Text>
+              </Pressable>
+              {showEndPicker && (
+                <DateTimePicker value={endDate} mode="date" display="default" onChange={onChangeEnd} />
+              )}
+            </>
+          )}
+
+          {step === 3 && (
+            <>
+              <Text style={styles.label}>Verkehrsmodi:</Text>
+              <View style={styles.modesContainer}>
+                {MODES.map(m => (
+                  <TouchableOpacity
+                    key={m.key}
+                    style={[styles.modeItem, selectedModes.includes(m.key) && styles.modeSelected]}
+                    onPress={() => toggleMode(m.key)}
+                  >
+                    <Text style={[styles.modeText, selectedModes.includes(m.key) && styles.modeTextSelected]}>
+                      {m.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </>
+          )}
+
+          {step === 4 && (
+            <>
+              <Text style={styles.label}>Stopps in {selectedRegion}:</Text>
+              <View style={styles.row}>
+                <TextInput
+                  style={[styles.input, { flex: 1 }]}
+                  placeholder="Stopp eingeben..."
+                  value={queryStop}
+                  onChangeText={t => { setQueryStop(t); setSelectedStop(null); }}
+                />
+                <Pressable
+                  style={[styles.addButton,
+                    (!selectedStop || stops.find(s => s.city === selectedStop.city) || stops.length >= 5)
+                    && styles.buttonDisabled
+                  ]}
+                  onPress={addStop}
+                  disabled={!selectedStop || stops.find(s => s.city === selectedStop.city) || stops.length >= 5}
+                >
+                  <Text style={styles.addText}>+</Text>
+                </Pressable>
+              </View>
+              {queryStop.length > 0 && (
+                <View style={styles.dropdown}>
+                  {suggestionsStop.map(item => (
+                    <TouchableOpacity
+                      key={item.city}
+                      onPress={() => { setQueryStop(item.city); setSelectedStop(item); }}
+                    >
+                      <Text style={styles.item}>{item.city}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+              {stops.length > 0 && (
+                <View style={styles.stopsContainer}>
+                  {stops.map((stop, i) => (
+                    <View key={i} style={styles.stopItem}>
+                      <Text style={styles.stopText}>{stop.city}</Text>
+                      <TouchableOpacity onPress={() => removeStop(stop.city)}>
+                        <Text style={styles.removeText}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </>
+          )}
+
+          {step === 5 && (
+            <View style={styles.summaryContainer}>
+              <Text style={styles.summaryTitle}>Zusammenfassung:</Text>
+              <View style={styles.summaryItem}>
+                <Text>Region: {selectedRegion}</Text>
+                <Pressable style={styles.editButton} onPress={() => setStep(1)}>
+                  <Text style={styles.editText}>Bearbeiten</Text>
+                </Pressable>
+              </View>
+              <View style={styles.summaryItem}>
+                <Text>Startdatum: {startDate.toLocaleDateString()}</Text>
+                <Pressable style={styles.editButton} onPress={() => setStep(2)}>
+                  <Text style={styles.editText}>Bearbeiten</Text>
+                </Pressable>
+              </View>
+              <View style={styles.summaryItem}>
+                <Text>Enddatum: {endDate.toLocaleDateString()}</Text>
+                <Pressable style={styles.editButton} onPress={() => setStep(3)}>
+                  <Text style={styles.editText}>Bearbeiten</Text>
+                </Pressable>
+              </View>
+              <View style={styles.summaryItem}>
+                <Text>Verkehrsmodi: {selectedModes.map(m => MODES.find(x => x.key === m).label).join(', ')}</Text>
+                <Pressable style={styles.editButton} onPress={() => setStep(4)}>
+                  <Text style={styles.editText}>Bearbeiten</Text>
+                </Pressable>
+              </View>
+              <View style={styles.summaryItem}>
+                <Text>Stopps: {stops.map(s => s.city).join(', ')}</Text>
+                <Pressable style={styles.editButton} onPress={() => setStep(5)}>
+                  <Text style={styles.editText}>Bearbeiten</Text>
+                </Pressable>
+              </View>
             </View>
           )}
-        </>
-      )}
 
-      {step === 6 && (
-        <View style={styles.summaryContainer}>
-          <Text style={styles.summaryTitle}>Zusammenfassung:</Text>
-          <View style={styles.summaryItem}>
-            <Text>Region: {selectedRegion}</Text>
-            <Pressable style={styles.editButton} onPress={() => setStep(1)}>
-              <Text style={styles.editText}>Bearbeiten</Text>
-            </Pressable>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text>Startdatum: {startDate.toLocaleDateString()}</Text>
-            <Pressable style={styles.editButton} onPress={() => setStep(2)}>
-              <Text style={styles.editText}>Bearbeiten</Text>
-            </Pressable>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text>Enddatum: {endDate.toLocaleDateString()}</Text>
-            <Pressable style={styles.editButton} onPress={() => setStep(3)}>
-              <Text style={styles.editText}>Bearbeiten</Text>
-            </Pressable>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text>Verkehrsmodi: {selectedModes.map(m => MODES.find(x => x.key === m).label).join(', ')}</Text>
-            <Pressable style={styles.editButton} onPress={() => setStep(4)}>
-              <Text style={styles.editText}>Bearbeiten</Text>
-            </Pressable>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text>Stopps: {stops.map(s => s.city).join(', ')}</Text>
-            <Pressable style={styles.editButton} onPress={() => setStep(5)}>
-              <Text style={styles.editText}>Bearbeiten</Text>
+          {/* Navigation Buttons */}
+          <View style={styles.navContainer}>
+            {step > 1 && (
+              <Pressable style={[styles.navButton]} onPress={onBack}>
+                <Text style={styles.buttonText}>Zurück</Text>
+              </Pressable>
+            )}
+            <Pressable
+              style={[styles.navButton, !canNext() && styles.buttonDisabled]}
+              onPress={onNext}
+              disabled={!canNext()}
+            >
+              <Text style={styles.buttonText}>{step == 5 ? 'Route anzeigen' : step == 1 ? 'Suche Starten' : 'Weiter'}</Text>
             </Pressable>
           </View>
         </View>
-      )}
-
-      {/* Navigation Buttons */}
-      <View style={styles.navContainer}>
-        {step > 1 && (
-          <Pressable style={[styles.navButton]} onPress={onBack}>
-            <Text style={styles.buttonText}>Zurück</Text>
-          </Pressable>
-        )}
-        <Pressable
-          style={[styles.navButton, !canNext() && styles.buttonDisabled]}
-          onPress={onNext}
-          disabled={!canNext()}
-        >
-          <Text style={styles.buttonText}>{step < 6 ? 'Weiter' : 'Route anzeigen'}</Text>
-        </Pressable>
-      </View>
     </KeyboardAwareScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: '#fff'},
   stepText: { fontSize: 14, color: '#666', alignSelf: 'center', marginBottom: 8 },
   label: { fontSize: 16, fontWeight: '600', marginBottom: 4 },
-  input: { borderWidth: 1, borderColor: '#ccc', padding: 8, borderRadius: 4 },
+  input: { borderWidth: 1, borderColor: '#aaa', padding: 8, borderRadius: 4, backgroundColor: '#fff' },
   modesContainer: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },
   modeItem: { paddingVertical: 6, paddingHorizontal: 12, backgroundColor: '#eee', borderRadius: 20, margin: 4 },
   modeSelected: { backgroundColor: '#007AFF' },
@@ -368,15 +418,15 @@ const styles = StyleSheet.create({
   dropdown: { borderWidth: 1, borderColor: '#ccc', borderRadius: 4, backgroundColor: '#fafafa', marginTop: 4 },
   item: { padding: 8, borderBottomWidth: 1, borderColor: '#eee' },
   row: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
-  addButton: { marginLeft: 8, backgroundColor: '#007AFF', padding: 12, borderRadius: 4, alignItems: 'center', justifyContent: 'center' },
+  addButton: { marginLeft: 8, backgroundColor: '#aaa', padding: 12, borderRadius: 4, alignItems: 'center', justifyContent: 'center' },
   addText: { color: '#fff', fontSize: 18, fontWeight: '600' },
   stopsContainer: { marginTop: 12, flexDirection: 'row', flexWrap: 'wrap' },
   stopItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#eef', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 4, margin: 4 },
   stopText: { marginRight: 6, color: '#333' },
   removeText: { color: '#900', fontWeight: '600' },
-  navContainer: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 24 },
-  navButton: { backgroundColor: '#007AFF', padding: 14, borderRadius: 6, alignItems: 'center', flex: 1, marginHorizontal: 4 },
-  buttonDisabled: { backgroundColor: '#aaa' },
+  navContainer: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 24},
+  navButton: { backgroundColor: '#aaa', padding: 14, borderRadius: 6, alignItems: 'center', flex: 1, marginHorizontal: 4 },
+  buttonDisabled: { backgroundColor: '#ccc', borderColor: '#aaa' },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   summaryContainer: { marginTop: 16, padding: 12, backgroundColor: '#f5f5f5', borderRadius: 6 },
   summaryTitle: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
@@ -384,5 +434,41 @@ const styles = StyleSheet.create({
   editButton: { paddingVertical: 4, paddingHorizontal: 8, borderWidth: 1, borderColor: '#007AFF', borderRadius: 4 },
   editText: { color: '#007AFF', fontWeight: '600' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { marginTop: 12, fontSize: 16, color: '#666' }
+  loadingText: { marginTop: 12, fontSize: 16, color: '#666' },
+  stepsContainer: { backgroundColor: '#ddd', paddingHorizontal: 8, borderRadius: 10, paddingVertical: 8},
+  padding: {paddingVertical: 10},
+    backgroundSwiper: {
+      //...StyleSheet.absoluteFillObject,
+      flex: 1,
+      zIndex: -1,
+    },
+    slide: {
+        flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      overflow: 'hidden'
+    },
+    backgroundImage: {
+      width: undefined,
+      height,
+      alignSelf: 'center'
+    },
+    descriptionOverlay: {
+      position: 'absolute',
+      bottom: height * 0.2,
+      left: 16,
+      right: 16,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      borderRadius: 12,
+      padding: 12,
+    },
+    descriptionTitle: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: '#fff'
+    },
+    descriptionText: {
+      fontSize: 14,
+      color: '#fff'
+    }
 });
