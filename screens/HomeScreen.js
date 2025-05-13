@@ -17,6 +17,8 @@ import * as Location from 'expo-location';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation } from '@react-navigation/native';
 import Swiper from 'react-native-swiper';
+import InputDatePicker from '../components/InputDatePicker';
+
 
 // Device dimensions for responsive layout
 const { width, height } = Dimensions.get('window');
@@ -26,24 +28,24 @@ const bgImages = [
   require('../assets/beach.webp'),
   require('../assets/countryside.webp'),
   require('../assets/greek-coast-sunshine.webp'),
-  require('../assets/mountain-scenery-morning-sun-rays-4k.jpg'),
+  require('../assets/mountain-scenery-morning-sun-rays-4k.jpg')
 ];
 const bgImagesDescription = [
   {
-    title: 'Hydria (Ancient Greek: 515-500 BCE)',
-    text:  'This large handled jar held the water used to dilute large quantities of wine in preparation for the Greek symposium.',
+    title: 'Cliffs of Dover',
+    text:  'Marvel the beauty of England\'s south coast and wander along the cliff\'s edge',
   },
   {
-    title: 'Beach at Cabassone (Henri Edmon Cross: 1891-92)',
-    text:  'In 1891, as a result of his rheumatoid arthritis, Henri Edmond Cross moved to Cabasson on the Côte d\'Azur and embraced scientific Impressionism.',
+    title: 'Swiss Alps',
+    text:  'Chocolate, Cheese and endless Charm. The 3 Cs\' that make the Swiss Alpine region absolutely stunning',
   },
   {
-    title: 'American Gothic (Grant Wood: 1930)',
-    text:  'Grant Wood evoked images of an earlier generation by featuring a farmer and his daughter as if in tintypes.',
+    title: 'Aegean Islands',
+    text:  'Since Antiquity this region represents the ',
   },
   {
-    title: 'It Was Yellow and Pink III (Georgia O\'Keeffe: 1960)',
-    text:  'With its sinuous lines of yellow against a pink backdrop, this painting captures the artist\'s view from an airplane window.',
+    title: 'The Valleys of California',
+    text:  '',
   }
 ];
 
@@ -62,10 +64,9 @@ const regionStopsMap = regions.reduce((acc, { region, city, airport }) => {
 
 // Verkehrsmittel
 const MODES = [
-  //{ key: 'driving',   label: 'Auto'      },
-  //{ key: 'bicycling', label: 'Fahrrad'   },
-  { key: 'transit',   label: 'Zug/Bus'   },
-  { key: 'flight',    label: 'Flug'      }
+  { key: 'bus',         label: 'Bus'       },
+  { key: 'train',       label: 'Train'     },
+  { key: 'flight',      label: 'Airplane'  }
 ];
 
 const OVERRIDE_CITY = 'Vienna';
@@ -92,6 +93,7 @@ export default function HomeScreen() {
   const [destinationAirport, setDestinationAirport] = useState(null);
   const [showEndDate, setShowEndDate] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+
 
   const findAirport = city => {
     const entry = regions.find(r => r.city === city);
@@ -178,7 +180,7 @@ useEffect(() => {
 
   // Weiter-Button
   const onNext = () => {
-    if (step < 5) {
+    if (step < 6) {
       setStep(step + 1);
       return;
     }
@@ -202,48 +204,58 @@ useEffect(() => {
   if (locationLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size='large' />
         <Text style={styles.loadingText}>Standort wird ermittelt...</Text>
       </View>
     );
   }
 
   return (
-    <KeyboardAwareScrollView
-      style={styles.container}
-      contentContainerStyle={{flexGrow: 1, paddingBottom: 40 }}
-      enableOnAndroid
-      extraScrollHeight={Platform.OS === 'ios' ? 20 : 60}
-      keyboardShouldPersistTaps="handled"
-    >
-      {/* Background carousel */}
+    <View style={styles.container}>
       <View style={styles.backgroundSwiper}>
-        <Swiper autoplay autoplayTimeout={5} showsPagination={false} loop>
-          {bgImages.map((img, index) => (
-            <View key={index} style={styles.slide}>
-              <Image source={img} style={styles.backgroundImage} resizeMode="cover" />
-              <View style={styles.descriptionOverlay}>
-                <Text style={styles.descriptionTitle}>
-                  {bgImagesDescription[index].title}
-                </Text>
-                <Text style={styles.descriptionText}>
-                  {bgImagesDescription[index].text}
-                </Text>
+        <Swiper
+            style={{ height }}
+            autoplay
+            autoplayTimeout={5}
+            showsPagination={false}
+            loop
+        >
+            {bgImages.map((img, idx) => (
+              <View key={idx} style={styles.slide}>
+                <Image
+                  source={img}
+                  style={styles.backgroundImage}
+                  resizeMode='cover'
+                />
+                <View style={styles.descriptionOverlay}>
+                  <Text style={styles.descriptionTitle}>
+                    {bgImagesDescription[idx].title}
+                  </Text>
+                  <Text style={styles.descriptionText}>
+                    {bgImagesDescription[idx].text}
+                  </Text>
+                </View>
               </View>
-            </View>
-          ))}
+            ))}
         </Swiper>
       </View>
-
+      <KeyboardAwareScrollView
+        style={styles.scrollArea}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps='handled'
+        enableOnAndroid
+        extraScrollHeight={Platform.OS === 'ios' ? 20 : 60}
+      >
         <View style={styles.stepsContainer}>
-          <Text style={styles.stepText}>Schritt {step} von 5</Text>
+          <Text style={[styles.labelSettingsBoxTitle, {marginTop: 8}]} numberOfLines={1}>Your Trip to: {selectedRegion}</Text>);
+          <Text style={[styles.stepText, {marginTop: 8}]}>Step {step} out of 5</Text>
 
           {step === 1 && (
             <>
-              <Text style={styles.label}>Region auswählen:</Text>
+              <Text style={[styles.label, {alignSelf: 'left'}]}>Choose a region: </Text>
               <TextInput
                 style={styles.input}
-                placeholder="Region eingeben..."
+                placeholder='Region eingeben...'
                 value={queryRegion}
                 onChangeText={t => { setQueryRegion(t); setSelectedRegion(null); setShowDropdown(true)}}
               />
@@ -261,30 +273,38 @@ useEffect(() => {
               )}
             </>
           )}
-
           {step === 2 && (
-            <>
-              <Text style={styles.label}>Startdatum:</Text>
-              <Pressable style={styles.input} onPress={() => setShowStartPicker(true)}>
-                <Text>{startDate.toLocaleDateString()}</Text>
-              </Pressable>
-              {showStartPicker && (
-                <DateTimePicker value={startDate} mode="date" display="default" onChange={onChangeStart} />
-              )}
-              <View style={styles.padding}></View>
-              <Text style={styles.label}>Enddatum:</Text>
-              <Pressable style={styles.input} onPress={() => setShowEndPicker(true)}>
-                <Text>{endDate.toLocaleDateString()}</Text>
-              </Pressable>
-              {showEndPicker && (
-                <DateTimePicker value={endDate} mode="date" display="default" onChange={onChangeEnd} />
-              )}
-            </>
+            <View style={[styles.search, styles.searchFlexBox]}>
+              {/* Title */}
+              <Text style={[styles.labelStepTitle, styles.labelFlexBox]} numberOfLines={1}>
+                When will you travel?
+              </Text>
+              <InputDatePicker
+                startDate={startDate}
+                endDate={endDate}
+                showStartPicker={showStartPicker}
+                showEndPicker={showEndPicker}
+                onStartPress={() => setShowStartPicker(true)}
+                onEndPress={() => setShowEndPicker(true)}
+                onChangeStart={(e, date) => {
+                  setShowStartPicker(false);
+                  date && setStartDate(date);
+                }}
+                onChangeEnd={(e, date) => {
+                  setShowEndPicker(false);
+                  date && setEndDate(date);
+                }}
+              />
+            </View>
           )}
 
-          {step === 3 && (
-            <>
-              <Text style={styles.label}>Verkehrsmodi:</Text>
+
+          {step === 5 && (
+            <View style={[styles.search, styles.searchFlexBox]}>
+                  {/* Title */}
+                  <Text style={[styles.labelStepTitle, styles.labelFlexBox]} numberOfLines={1}>
+                    What modes?
+                  </Text>
               <View style={styles.modesContainer}>
                 {MODES.map(m => (
                   <TouchableOpacity
@@ -298,7 +318,7 @@ useEffect(() => {
                   </TouchableOpacity>
                 ))}
               </View>
-            </>
+            </View>
           )}
 
           {step === 4 && (
@@ -307,7 +327,7 @@ useEffect(() => {
               <View style={styles.row}>
                 <TextInput
                   style={[styles.input, { flex: 1 }]}
-                  placeholder="Stopp eingeben..."
+                  placeholder='Stopp eingeben...'
                   value={queryStop}
                   onChangeText={t => { setQueryStop(t); setSelectedStop(null); }}
                 />
@@ -349,7 +369,7 @@ useEffect(() => {
             </>
           )}
 
-          {step === 5 && (
+          {step === 6 && (
             <View style={styles.summaryContainer}>
               <Text style={styles.summaryTitle}>Zusammenfassung:</Text>
               <View style={styles.summaryItem}>
@@ -397,22 +417,81 @@ useEffect(() => {
               onPress={onNext}
               disabled={!canNext()}
             >
-              <Text style={styles.buttonText}>{step == 5 ? 'Route anzeigen' : step == 1 ? 'Suche Starten' : 'Weiter'}</Text>
+              <Text style={styles.buttonText}>{step == 6 ? 'Route anzeigen' : step == 1 ? 'Suche Starten' : 'Weiter'}</Text>
             </Pressable>
           </View>
         </View>
-    </KeyboardAwareScrollView>
+      </KeyboardAwareScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff'},
-  stepText: { fontSize: 14, color: '#666', alignSelf: 'center', marginBottom: 8 },
+  container: {
+    flex: 1,
+    backgroundColor: 'transparent',   // für den Root-View
+  },
+  scrollArea: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 8,
+    paddingTop: 16,
+    paddingBottom: 40,
+  },
+  backgroundSwiper: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex : -1
+  },
+  slide: {
+    width,
+    height,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backgroundImage: {
+    height,
+    width,
+    alignSelf: 'center',
+  },
+  descriptionOverlay: {
+    position: 'absolute',
+    bottom: height * 0.2,
+    left: 16,
+    right: 16,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 12,
+    padding: 12,
+  },
+  descriptionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  descriptionText: {
+    fontSize: 14,
+    color: '#fff',
+  },
+  stepText: {
+    fontSize: 16,
+    lineHeight: 24,
+    fontWeight: "700",
+    fontFamily: "Inter-Bold",
+    color: "#000",
+    alignSelf: 'center',
+    overflow: "hidden",
+    width: 134,
+    height: 28,
+    opacity: 0.7
+  },
   label: { fontSize: 16, fontWeight: '600', marginBottom: 4 },
   input: { borderWidth: 1, borderColor: '#aaa', padding: 8, borderRadius: 4, backgroundColor: '#fff' },
   modesContainer: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },
-  modeItem: { paddingVertical: 6, paddingHorizontal: 12, backgroundColor: '#eee', borderRadius: 20, margin: 4 },
-  modeSelected: { backgroundColor: '#007AFF' },
+  modeItem: { paddingVertical: 6, paddingHorizontal: 12, backgroundColor: '#fff', borderRadius: 20, margin: 4 },
+  modeSelected: { backgroundColor: '#aaa' },
   modeText: { color: '#333' },
   modeTextSelected: { color: '#fff' },
   dropdown: { borderWidth: 1, borderColor: '#ccc', borderRadius: 4, backgroundColor: '#fafafa', marginTop: 4 },
@@ -435,40 +514,32 @@ const styles = StyleSheet.create({
   editText: { color: '#007AFF', fontWeight: '600' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 12, fontSize: 16, color: '#666' },
-  stepsContainer: { backgroundColor: '#ddd', paddingHorizontal: 8, borderRadius: 10, paddingVertical: 8},
+  stepsContainer: {
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    paddingVertical: 8,
+  },
   padding: {paddingVertical: 10},
-    backgroundSwiper: {
-      //...StyleSheet.absoluteFillObject,
-      flex: 1,
-      zIndex: -1,
-    },
-    slide: {
-        flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      overflow: 'hidden'
-    },
-    backgroundImage: {
-      width: undefined,
-      height,
+  scrollArea: {
+    flex: 1,
+    backgroundColor: 'transparent',  // damit der Swiper durchscheint
+  },
+  labelStepTitle: {
+      padding:10,
+      fontSize: 30,
+      fontWeight: "1000",
+      fontFamily: "Inter-Bold",
+      color: "#000",
       alignSelf: 'center'
-    },
-    descriptionOverlay: {
-      position: 'absolute',
-      bottom: height * 0.2,
-      left: 16,
-      right: 16,
-      backgroundColor: 'rgba(0,0,0,0.5)',
-      borderRadius: 12,
-      padding: 12,
-    },
-    descriptionTitle: {
-      fontSize: 16,
-      fontWeight: 'bold',
-      color: '#fff'
-    },
-    descriptionText: {
-      fontSize: 14,
-      color: '#fff'
-    }
+  },
+  labelSettingsBoxTitle: {
+    fontSize: 20,
+    lineHeight: 24,
+    fontWeight: "700",
+    fontFamily: "Inter-Bold",
+    color: "#000",
+    alignSelf: 'center',
+    overflow: "hidden",
+  }
 });
