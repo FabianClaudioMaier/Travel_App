@@ -18,6 +18,9 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation } from '@react-navigation/native';
 import Swiper from 'react-native-swiper';
 import InputDatePicker from '../components/InputDatePicker';
+import MaximalPrice from '../components/MaximalPrice';
+import NumberOfPeople from '../components/NumberOfPeople.js';
+
 
 
 // Device dimensions for responsive layout
@@ -75,7 +78,7 @@ export default function HomeScreen() {
   const nav = useNavigation();
 
   // --- State für die Schritte, Datum, Modi, Stops etc. (unverändert) ---
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(0);
   const [locationLoading, setLocationLoading] = useState(true);
   const [startCity, setStartCity] = useState(null);
   const regionsList = Object.keys(regionStopsMap);
@@ -93,6 +96,9 @@ export default function HomeScreen() {
   const [destinationAirport, setDestinationAirport] = useState(null);
   const [showEndDate, setShowEndDate] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [maxPrice, setMaxPrice] = useState(2000);
+  const [numberOfAdults, setNumberOfAdults] = useState(1);
+  const [numberOfChildren, setNumberOfChildren] = useState(0);
 
 
   const findAirport = city => {
@@ -113,21 +119,24 @@ useEffect(() => {
       setDestinationAirport(code);
       return;
     }
-
     // 2) Position holen
     let city = OVERRIDE_CITY;          // Standard-Fallback
     try {
-      const loc = await Location.getCurrentPositionAsync({});
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Highest,
+        timeInterval: 10000,       // für watchPositionAsync
+        maximumAge: 10000,         // max. Cache - 10 Sek.
+        enableHighAccuracy: true,  // falls unterstützt
+      });
       const rev = await Location.reverseGeocodeAsync(loc.coords);
       city = rev[0]?.city
           || rev[0]?.region
           || rev[0]?.subregion
           || OVERRIDE_CITY;
-      if (city === 'Mountain View') city = OVERRIDE_CITY;
+      if (city === 'Wien') city = OVERRIDE_CITY;
     } catch (e) {
       // city bleibt OVERRIDE_CITY
     }
-
     // 3) State setzen
     setStartCity(city);
     const code = findAirport(city);
@@ -170,10 +179,12 @@ useEffect(() => {
   // Schritt-Freigaben
   const canNext = () => {
     switch (step) {
-      case 1: return !!selectedRegion;
+      case 0: return !!selectedRegion
+      case 1: return numberOfAdults + numberOfChildren > 0;
       case 2: return !!endDate;
-      case 3: return selectedModes.length > 0;
+      case 3: return maxPrice > 0;
       case 4: return stops.length > 0;
+      case 5: return selectedModes.length > 0;
       default: return true;
     }
   };
@@ -199,7 +210,7 @@ useEffect(() => {
     nav.navigate('Result', payload);
   };
 
-  const onBack = () => step > 1 && setStep(step - 1);
+  const onBack = () => step > 0 && setStep(step - 1);
 
   if (locationLoading) {
     return (
@@ -247,15 +258,21 @@ useEffect(() => {
         extraScrollHeight={Platform.OS === 'ios' ? 20 : 60}
       >
         <View style={styles.stepsContainer}>
-          <Text style={[styles.labelSettingsBoxTitle, {marginTop: 8}]} numberOfLines={1}>Your Trip to: {selectedRegion}</Text>);
-          <Text style={[styles.stepText, {marginTop: 8}]}>Step {step} out of 5</Text>
-
-          {step === 1 && (
+          {step > 0 && (
             <>
-              <Text style={[styles.label, {alignSelf: 'left'}]}>Choose a region: </Text>
+              <Text style={[styles.labelSettingsBoxTitle, {marginTop: 8}]} numberOfLines={1}>
+                    Your Trip to: {selectedRegion}
+              </Text>
+              <Text style={[styles.stepText, {marginTop: 8}]}>
+                Step {step} out of 5
+              </Text>
+            </>
+          )}
+          {step === 0 && (
+            <>
               <TextInput
-                style={styles.input}
-                placeholder='Region eingeben...'
+                style={[styles.inputTextContainer,styles.inputText]}
+                placeholder='Choose a region...'
                 value={queryRegion}
                 onChangeText={t => { setQueryRegion(t); setSelectedRegion(null); setShowDropdown(true)}}
               />
@@ -272,6 +289,19 @@ useEffect(() => {
                 </View>
               )}
             </>
+          )}
+          {step === 1 && (
+             <View style={[styles.search, styles.searchFlexBox]}>
+               <Text style={[styles.labelStepTitle, styles.labelFlexBox]}>
+                 How many People?
+               </Text>
+               <NumberOfPeople
+                 numberOfAdults={numberOfAdults}
+                 onChangeNumberOfAdults={setNumberOfAdults}
+                 numberOfChildren={numberOfChildren}
+                 onChangeNumberOfChildren={setNumberOfChildren}
+               />
+             </View>
           )}
           {step === 2 && (
             <View style={[styles.search, styles.searchFlexBox]}>
@@ -297,7 +327,17 @@ useEffect(() => {
               />
             </View>
           )}
-
+          {step === 3 && (
+           <View style={[styles.search, styles.searchFlexBox]}>
+             <Text style={[styles.labelStepTitle, styles.labelFlexBox]}>
+               Maximaler Preis
+             </Text>
+             <MaximalPrice
+               maxPrice={maxPrice}
+               onChange={setMaxPrice}
+             />
+           </View>
+          )}
 
           {step === 5 && (
             <View style={[styles.search, styles.searchFlexBox]}>
@@ -322,11 +362,14 @@ useEffect(() => {
           )}
 
           {step === 4 && (
-            <>
-              <Text style={styles.label}>Stopps in {selectedRegion}:</Text>
-              <View style={styles.row}>
+            <View style={[styles.search, styles.searchFlexBox]}>
+             <Text style={[styles.labelStepTitle, styles.labelFlexBox]}>
+               Which places will you visit?
+             </Text>
+              <Text style={styles.label}>Choose your prefered sites in {selectedRegion}:</Text>
+              <View style={[styles.row,styles.inputTextContainer]}>
                 <TextInput
-                  style={[styles.input, { flex: 1 }]}
+                  style={[styles.inputText, { flex: 1 }]}
                   placeholder='Stopp eingeben...'
                   value={queryStop}
                   onChangeText={t => { setQueryStop(t); setSelectedStop(null); }}
@@ -339,7 +382,7 @@ useEffect(() => {
                   onPress={addStop}
                   disabled={!selectedStop || stops.find(s => s.city === selectedStop.city) || stops.length >= 5}
                 >
-                  <Text style={styles.addText}>+</Text>
+                  <Text style={styles.addText}>Add</Text>
                 </Pressable>
               </View>
               {queryStop.length > 0 && (
@@ -366,7 +409,7 @@ useEffect(() => {
                   ))}
                 </View>
               )}
-            </>
+            </View>
           )}
 
           {step === 6 && (
@@ -407,7 +450,7 @@ useEffect(() => {
 
           {/* Navigation Buttons */}
           <View style={styles.navContainer}>
-            {step > 1 && (
+            {step > 0 && (
               <Pressable style={[styles.navButton]} onPress={onBack}>
                 <Text style={styles.buttonText}>Zurück</Text>
               </Pressable>
@@ -417,7 +460,13 @@ useEffect(() => {
               onPress={onNext}
               disabled={!canNext()}
             >
-              <Text style={styles.buttonText}>{step == 6 ? 'Route anzeigen' : step == 1 ? 'Suche Starten' : 'Weiter'}</Text>
+              <Text style={styles.buttonText}>
+                {step == 6 ?
+                    'Route anzeigen' :
+                    step == 0 ?
+                      'Suche Starten' : 'Weiter'
+                }
+              </Text>
             </Pressable>
           </View>
         </View>
@@ -487,22 +536,106 @@ const styles = StyleSheet.create({
     height: 28,
     opacity: 0.7
   },
-  label: { fontSize: 16, fontWeight: '600', marginBottom: 4 },
-  input: { borderWidth: 1, borderColor: '#aaa', padding: 8, borderRadius: 4, backgroundColor: '#fff' },
-  modesContainer: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },
-  modeItem: { paddingVertical: 6, paddingHorizontal: 12, backgroundColor: '#fff', borderRadius: 20, margin: 4 },
-  modeSelected: { backgroundColor: '#aaa' },
-  modeText: { color: '#333' },
-  modeTextSelected: { color: '#fff' },
-  dropdown: { borderWidth: 1, borderColor: '#ccc', borderRadius: 4, backgroundColor: '#fafafa', marginTop: 4 },
-  item: { padding: 8, borderBottomWidth: 1, borderColor: '#eee' },
-  row: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
-  addButton: { marginLeft: 8, backgroundColor: '#aaa', padding: 12, borderRadius: 4, alignItems: 'center', justifyContent: 'center' },
-  addText: { color: '#fff', fontSize: 18, fontWeight: '600' },
-  stopsContainer: { marginTop: 12, flexDirection: 'row', flexWrap: 'wrap' },
-  stopItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#eef', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 4, margin: 4 },
-  stopText: { marginRight: 6, color: '#333' },
-  removeText: { color: '#900', fontWeight: '600' },
+  label: {
+    fontSize: 16,
+    lineHeight: 24,
+    fontWeight: "700",
+    fontFamily: "Inter-Bold",
+    color: "#000",
+    textAlign: "left",
+    alignSelf: "center",
+    overflow: "hidden",
+    opacity: 0.7
+  },
+  modesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 8
+  },
+  modeItem: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    margin: 4
+  },
+  modeSelected: {
+    backgroundColor: '#aaa'
+  },
+  modeText: {
+    color: '#333'
+  },
+  modeTextSelected: {
+    color: '#fff'
+  },
+  dropdown: {
+    shadowColor: "rgba(0, 0, 0, 0.3)",
+    shadowOffset: {
+        width: 0,
+        height: 1
+    },
+    shadowRadius: 2,
+    elevation: 2,
+    shadowOpacity: 1,
+    borderRadius: 4,
+    backgroundColor: "#fff",
+    paddingHorizontal: 0,
+    width: "80%",
+    flex: 1
+  },
+  item: {
+    padding: 8,
+    fontSize: 16,
+    letterSpacing: 1,
+    lineHeight: 24,
+    fontFamily: "Roboto-Regular",
+    color: "#000",
+    textAlign: "left",
+    alignSelf: "stretch"
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4
+  },
+  addButton: {
+    margin:4,
+    width: "18%",
+    backgroundColor: '#aaa',
+    padding: 12,
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  addText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600'
+  },
+  stopsContainer: {
+    marginTop: 12,
+    flexDirection: 'row',
+    flexWrap: 'wrap'
+  },
+  stopItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderColor: '#000',
+    borderWidth: 1,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+    margin: 4
+  },
+  stopText: {
+    marginRight: 6,
+    color: '#000'
+  },
+  removeText: {
+    color: '#000',
+    fontWeight: '600'
+  },
   navContainer: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 24},
   navButton: { backgroundColor: '#aaa', padding: 14, borderRadius: 6, alignItems: 'center', flex: 1, marginHorizontal: 4 },
   buttonDisabled: { backgroundColor: '#ccc', borderColor: '#aaa' },
@@ -527,7 +660,7 @@ const styles = StyleSheet.create({
   },
   labelStepTitle: {
       padding:10,
-      fontSize: 30,
+      fontSize: 26,
       fontWeight: "1000",
       fontFamily: "Inter-Bold",
       color: "#000",
@@ -541,5 +674,23 @@ const styles = StyleSheet.create({
     color: "#000",
     alignSelf: 'center',
     overflow: "hidden",
-  }
+  },
+  inputTextContainer: {
+    borderRadius: 4,
+    borderStyle: "solid",
+    borderColor: "#000",
+    borderWidth: 1,
+    width: "100%",
+    flex: 1,
+    alignSelf: "stretch"
+  },
+  inputText: {
+    fontSize: 16,
+    letterSpacing: 1,
+    lineHeight: 24,
+    fontFamily: "Roboto-Regular",
+    color: "#000",
+    textAlign: "left"
+  },
+
 });
