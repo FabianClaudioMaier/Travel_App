@@ -24,6 +24,8 @@ export interface Region {
   id: string;
   name: string;
   continent: string;
+  description: string;
+  image_url: string;
 }
 
 export type Regions = Region[];
