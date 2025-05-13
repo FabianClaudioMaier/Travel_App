@@ -24,9 +24,9 @@ const api = {
             try {
                 console.log('Fetching cities by region', regionId);
                 const url = `${BASE_URL}/destinations/cities_by_region?region=${regionId}`;
-                console.log(url);
+                // console.log(url);
                 const response = await axios.get<Cities>(url);
-                console.log(response.data);
+                // console.log(response.data);
                 return response.data;
             } catch (error) {
                 console.log('Error fetching cities by region', error);
