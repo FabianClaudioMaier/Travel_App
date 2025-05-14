@@ -1,22 +1,71 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View, Platform, ScrollView } from 'react-native';
-import { Dropdown } from 'react-native-element-dropdown';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Pressable,
+  StyleSheet,
+  Alert,
+  ActivityIndicator,
+  Platform,
+  Dimensions,
+  Image,
+} from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import * as Location from 'expo-location';
 import StepIndicator from 'react-native-step-indicator';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import Swiper from 'react-native-swiper';
+import { useRouter } from 'expo-router';
 
-import { Cities } from '@/interfaces/destinations';
-import api from '@/services/api';
+// Components
+import InputDatePicker, { InputDatePickerProps } from '../components/InputDatePicker';
+import MaximalPrice from '../components/MaximalPrice';
+import NumberOfPeople from '../components/NumberOfPeople';
 
-type City = Cities[number];
+const { width, height } = Dimensions.get('window');
 
-interface Travelers {
-  adults: number;
-  children: number;
-}
+// Assets
+const bgImages = [
+  require('../assets/images/beach.png'),
+  require('../assets/images/countryside.png'),
+  require('../assets/images/greek-coast-sunshine.png'),
+  require('../assets/images/mountain.jpg'),
+];
+const bgImagesDescription = [
+  { title: 'Cliffs of Dover', text: "Marvel the beauty..." },
+  { title: 'Swiss Alps', text: 'Chocolate, Cheese and endless Charm...' },
+  { title: 'Aegean Islands', text: 'Since Antiquity...' },
+  { title: 'Valleys of California', text: '' },
+];
 
-const labels = ["Destination", "Dates", "Passengers", "Summary"];
+// Data
+import regionsData from '../assets/data/regions.json';
+const { regions, airportCoordinates } = regionsData;
+const regionStopsMap = regions.reduce((acc: any, { region, city, airport }) => {
+  if (!acc[region]) acc[region] = [];
+  acc[region].push({ city, airport });
+  return acc;
+}, {});
 
-const customStyles = {
+const MODES = [
+  { key: 'bus', label: 'Bus' },
+  { key: 'train', label: 'Train' },
+  { key: 'flight', label: 'Airplane' },
+];
+const OVERRIDE_CITY = 'Vienna';
+
+// Step Indicator labels & styles
+const labels = [
+  'Region',
+  'People',
+  'Dates',
+  'Price',
+  'Stops',
+  'Modes',
+  'Summary',
+];
+const stepIndicatorStyles = {
   stepIndicatorSize: 25,
   currentStepIndicatorSize: 30,
   separatorStrokeWidth: 2,
@@ -30,199 +79,199 @@ const customStyles = {
   stepIndicatorFinishedColor: '#007AFF',
   stepIndicatorUnFinishedColor: '#ffffff',
   stepIndicatorCurrentColor: '#ffffff',
-  stepIndicatorLabelFontSize: 12,
-  currentStepIndicatorLabelFontSize: 14,
-  stepIndicatorLabelCurrentColor: '#007AFF',
-  stepIndicatorLabelFinishedColor: '#ffffff',
-  stepIndicatorLabelUnFinishedColor: '#aaaaaa',
+  stepIndicatorLabelFontSize: 10,
+  currentStepIndicatorLabelFontSize: 10,
   labelColor: '#999999',
-  labelSize: 12,
-  currentStepLabelColor: '#007AFF'
+  labelSize: 1,
 };
 
-const TripConfigurator = () => {
-  const [step, setStep] = useState(1);
-  const [cities, setCities] = useState<Cities>([]);
-  const [selectedCity, setSelectedCity] = useState<City | null>(null);
-  const [loadingCities, setLoadingCities] = useState(false);
-  const [departureDate, setDepartureDate] = useState<Date | null>(null);
-  const [returnDate, setReturnDate] = useState<Date | null>(null);
-  const [travelers, setTravelers] = useState<Travelers>({ adults: 0, children: 0 });
-  const [showDatePicker, setShowDatePicker] = useState<{
-    field: 'departure' | 'return' | null;
-    visible: boolean;
-  }>({ field: null, visible: false });
+export default function HomeScreen() {
+  const router = useRouter();
+  // States
+  const [step, setStep] = useState<number>(0);
+  const [locationLoading, setLocationLoading] = useState<boolean>(true);
+  const [startCity, setStartCity] = useState<string | null>(null);
+  const regionsList = Object.keys(regionStopsMap);
+  const [queryRegion, setQueryRegion] = useState<string>('');
+  const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
+  const [queryStop, setQueryStop] = useState<string>('');
+  const [selectedStop, setSelectedStop] = useState<{ city: string; airport: string } | null>(null);
+  const [stops, setStops] = useState<Array<{ city: string; airport: string }>>([]);
+  const [startDate, setStartDate] = useState<Date>(new Date());
+  const [showStartPicker, setShowStartPicker] = useState<boolean>(false);
+  const [endDate, setEndDate] = useState<Date>(new Date());
+  const [showEndPicker, setShowEndPicker] = useState<boolean>(false);
+  const [selectedModes, setSelectedModes] = useState<string[]>([]);
+  const [originAirport, setOriginAirport] = useState<string | null>(null);
+  const [destinationAirport, setDestinationAirport] = useState<string | null>(null);
+  const [showDropdown, setShowDropdown] = useState<boolean>(false);
+  const [maxPrice, setMaxPrice] = useState<number>(2000);
+  const [numberOfAdults, setNumberOfAdults] = useState<number>(1);
+  const [numberOfChildren, setNumberOfChildren] = useState<number>(0);
 
-  const fetchCities = useCallback(async () => {
-    setLoadingCities(true);
-    try {
-      const cities = await api.destinations.getAllCities();
-      setCities(cities);
-    } catch (error) {
-      console.error("Error fetching cities", error);
-    } finally {
-      setLoadingCities(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchCities();
-  }, [fetchCities]);
-
-  const handleTravelerChange = useCallback((type: keyof Travelers, increment: boolean) => {
-    setTravelers(prev => ({
-      ...prev,
-      [type]: Math.max(0, prev[type] + (increment ? 1 : -1))
-    }));
-  }, []);
-
-  const canGoNext = useCallback(() => {
-    switch (step) {
-      case 1:
-        return selectedCity;
-      case 2:
-        return departureDate && returnDate && departureDate < returnDate;
-      case 3:
-        return travelers.adults > 0;
-      default:
-        return true;
-    }
-  }, [step, selectedCity, departureDate, returnDate, travelers]);
-
-  const goNext = useCallback(() => {
-    if (canGoNext() && step < labels.length) {
-      setStep(prev => prev + 1);
-    }
-  }, [canGoNext, step]);
-
-  const goBack = useCallback(() => {
-    if (step > 1) {
-      setStep(prev => prev - 1);
-    }
-  }, [step]);
-
-  const handleDateChange = useCallback((event: any, selectedDate: Date | undefined) => {
-    setShowDatePicker({ field: null, visible: false });
-
-    if (event.type === 'set' && selectedDate) {
-      if (showDatePicker.field === 'departure') {
-        setDepartureDate(selectedDate);
-      } else if (showDatePicker.field === 'return') {
-        setReturnDate(selectedDate);
-      }
-    }
-  }, [showDatePicker.field]);
-
-  const formatDate = (date: Date) => {
-    return `${date.getDate().toString().padStart(2, '0')}-${(date.getMonth() + 1)
-      .toString()
-      .padStart(2, '0')}-${date.getFullYear()}`;
+  const findAirport = (city: string) => {
+    const entry = regions.find(r => r.city === city);
+    return entry?.airport || 'VIE';
   };
 
-  if (showDatePicker.visible) {
-    return (
-      <DateTimePicker
-        value={new Date()}
-        mode="date"
-        display={Platform.OS === 'ios' ? 'inline' : 'default'}
-        onChange={handleDateChange}
-      />
-    );
+  // Location effect
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Erlaubnis benötigt', 'Standortzugriff ist erforderlich.');
+        setLocationLoading(false);
+        setStartCity(OVERRIDE_CITY);
+        const code = findAirport(OVERRIDE_CITY);
+        setOriginAirport(code);
+        setDestinationAirport(code);
+        return;
+      }
+      let city = OVERRIDE_CITY;
+      try {
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest });
+        const rev = await Location.reverseGeocodeAsync(loc.coords);
+        city = rev[0]?.city || rev[0]?.region || OVERRIDE_CITY;
+        city === 'Wien' ? city = OVERRIDE_CITY : null;
+      } catch {}
+      setStartCity(city);
+      const code = findAirport(city);
+      setOriginAirport(code);
+      setDestinationAirport(code);
+      setLocationLoading(false);
+    })();
+  }, []);
+
+  // Handlers
+  const onChangeStart = (_e: any, date?: Date) => { setShowStartPicker(false); date && setStartDate(date); };
+  const onChangeEnd = (_e: any, date?: Date) => { setShowEndPicker(false); date && setEndDate(date); };
+  const toggleMode = (key: string) => setSelectedModes(prev => prev.includes(key) ? prev.filter(m => m !== key) : [...prev, key]);
+  const addStop = () => { if (selectedStop && !stops.find(s => s.city === selectedStop.city) && stops.length < 5) { setStops([...stops, selectedStop]); setQueryStop(''); setSelectedStop(null); }};
+  const removeStop = (city: string) => setStops(stops.filter(s => s.city !== city));
+
+  const suggestionsRegion = regionsList.filter(r => r.toLowerCase().includes(queryRegion.trim().toLowerCase()));
+  const suggestionsStop = selectedRegion ? regionStopsMap[selectedRegion].filter(({ city }) => city.toLowerCase().includes(queryStop.trim().toLowerCase())) : [];
+
+  const canNext = () => {
+    switch (step) {
+      case 0: return !!selectedRegion;
+      case 1: return numberOfAdults + numberOfChildren > 0;
+      case 2: return !!endDate;
+      case 3: return maxPrice > 0;
+      case 4: return stops.length > 0;
+      case 5: return selectedModes.length > 0;
+      default: return true;
+    }
+  };
+
+  const onNext = () => {
+    if (step < labels.length - 1) {
+      setStep(s => s + 1);
+    } else {
+      router.push({
+        pathname: '/result',
+        params: {
+          origin: startCity!,
+          stops: stops.map(s => s.city),
+          destination: startCity!,
+          modes: selectedModes,
+          originAirport,
+          destinationAirport,
+          stopsAirport: stops.map(s => s.airport)
+        }
+      });
+    }
+  };
+  const onBack = () => step > 0 && setStep(s => s - 1);
+
+  if (locationLoading) {
+    return <View style={styles.loadingContainer}><ActivityIndicator size='large' /><Text style={styles.loadingText}>Standort wird ermittelt...</Text></View>;
   }
 
-  const renderStepContent = () => {
+  // Render step content
+  const renderContent = () => {
     switch (step) {
-      case 1:
+      case 0:
         return (
           <>
-            <Text style={styles.title}>Select a origin and destination</Text>
-            <Text style={styles.label}>From:</Text>
-            <Dropdown
-              data={cities}
-              labelField="city_name"
-              valueField="id"
-              placeholder="Vienna"
-              value="Vienna"
-              onChange={(item: City) => setSelectedCity(item)}
-              style={[styles.dropdown, { backgroundColor: '#f0f0f0', opacity: 0.7 }]}
-              disable={true}
-            />
-            <Text style={styles.label}>To:</Text>
-            {loadingCities ? (
-              <ActivityIndicator size="small" />
-            ) : (
-              <Dropdown
-                data={cities}
-                labelField="city_name"
-                valueField="id"
-                placeholder="Select destination"
-                value={selectedCity?.id}
-                onChange={(item: City) => setSelectedCity(item)}
-                style={styles.dropdown}
-              />
+            <TextInput style={[styles.inputTextContainer, styles.inputText]} placeholder='Choose a region...' value={queryRegion} onChangeText={t => { setQueryRegion(t); setSelectedRegion(null); setShowDropdown(true); }} />
+            {queryRegion.length > 0 && showDropdown && (
+              <View style={styles.dropdown}>
+                {suggestionsRegion.map(item => <TouchableOpacity key={item} onPress={() => { setQueryRegion(item); setSelectedRegion(item); setShowDropdown(false); }}><Text style={styles.item}>{item}</Text></TouchableOpacity>)}
+              </View>
             )}
           </>
         );
+      case 1:
+        return <NumberOfPeople numberOfAdults={numberOfAdults} onChangeNumberOfAdults={setNumberOfAdults} numberOfChildren={numberOfChildren} onChangeNumberOfChildren={setNumberOfChildren} />;
       case 2:
-        return (
-          <>
-            <Text style={styles.label}>Departure Date</Text>
-            <TouchableOpacity
-              style={styles.dateButton}
-              onPress={() => setShowDatePicker({ field: 'departure', visible: true })}
-            >
-              <Text>{departureDate ? formatDate(departureDate) : 'Select a date'}</Text>
-            </TouchableOpacity>
-
-            <Text style={styles.label}>Return Date</Text>
-            <TouchableOpacity
-              style={styles.dateButton}
-              onPress={() => setShowDatePicker({ field: 'return', visible: true })}
-            >
-              <Text>{returnDate ? formatDate(returnDate) : 'Select a date'}</Text>
-            </TouchableOpacity>
-          </>
-        );
+        return <InputDatePicker startDate={startDate} endDate={endDate} showStartPicker={showStartPicker} showEndPicker={showEndPicker} onStartPress={() => setShowStartPicker(true)} onEndPress={() => setShowEndPicker(true)} onChangeStart={onChangeStart} onChangeEnd={onChangeEnd} />;
       case 3:
-        return (
-          <>
-            <Text style={styles.label}>Number of Travelers</Text>
-
-            <View style={styles.counterContainer}>
-              <Text style={styles.counterLabel}>Adults</Text>
-              <View style={styles.counterControls}>
-                <TouchableOpacity style={styles.counterButton} onPress={() => handleTravelerChange('adults', false)}>
-                  <Text style={styles.counterButtonText}>-</Text>
-                </TouchableOpacity>
-                <Text style={styles.counterValue}>{travelers.adults}</Text>
-                <TouchableOpacity style={styles.counterButton} onPress={() => handleTravelerChange('adults', true)}>
-                  <Text style={styles.counterButtonText}>+</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={styles.counterContainer}>
-              <Text style={styles.counterLabel}>Children</Text>
-              <View style={styles.counterControls}>
-                <TouchableOpacity style={styles.counterButton} onPress={() => handleTravelerChange('children', false)}>
-                  <Text style={styles.counterButtonText}>-</Text>
-                </TouchableOpacity>
-                <Text style={styles.counterValue}>{travelers.children}</Text>
-                <TouchableOpacity style={styles.counterButton} onPress={() => handleTravelerChange('children', true)}>
-                  <Text style={styles.counterButtonText}>+</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </>
-        );
+        return <MaximalPrice maxPrice={maxPrice} onChange={setMaxPrice} />;
       case 4:
         return (
+          <View>
+            <Text style={styles.label}>Stops in {selectedRegion}</Text>
+              <View style={[styles.row,styles.inputTextContainer]}>
+                <TextInput
+                  style={[styles.inputText, { flex: 1 }]}
+                  placeholder='Stopp eingeben...'
+                  value={queryStop}
+                  onChangeText={t => { setQueryStop(t); setSelectedStop(null); }}
+                />
+                <Pressable
+                  style={[styles.addButton,
+                    (!selectedStop || stops.find(s => s.city === selectedStop.city) || stops.length >= 5)
+                    && styles.buttonDisabled
+                  ]}
+                  onPress={addStop}
+                  disabled={!selectedStop || stops.find(s => s.city === selectedStop.city) || stops.length >= 5}
+                >
+                  <Text style={styles.addText}>Add</Text>
+                </Pressable>
+              </View>
+              {queryStop.length > 0 && (
+                <View style={styles.dropdown}>
+                  {suggestionsStop.map(item => (
+                    <TouchableOpacity
+                      key={item.city}
+                      onPress={() => { setQueryStop(item.city); setSelectedStop(item); }}
+                    >
+                      <Text style={styles.item}>{item.city}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+              {stops.length > 0 && (
+                <View style={styles.stopsContainer}>
+                  {stops.map((stop, i) => (
+                    <View key={i} style={styles.stopItem}>
+                      <Text style={styles.stopText}>{stop.city}</Text>
+                      <TouchableOpacity onPress={() => removeStop(stop.city)}>
+                        <Text style={styles.removeText}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
+          </View>
+        );
+      case 5:
+        return (
+          <View style={styles.modesContainer}>
+            {MODES.map(m => <TouchableOpacity key={m.key} style={[styles.modeItem, selectedModes.includes(m.key) && styles.modeSelected]} onPress={() => toggleMode(m.key)}><Text style={[styles.modeText, selectedModes.includes(m.key) && styles.modeTextSelected]}>{m.label}</Text></TouchableOpacity>)}
+          </View>
+        );
+      case 6:
+        return (
           <View style={styles.summaryContainer}>
-            <Text style={styles.summaryTitle}>Trip Summary</Text>
-            <Text style={styles.summaryText}>To: {selectedCity?.city_name}</Text>
-            <Text style={styles.summaryText}>Dates: {formatDate(departureDate!)} - {formatDate(returnDate!)}</Text>
-            <Text style={styles.summaryText}>Adults: {travelers.adults}</Text>
-            <Text style={styles.summaryText}>Children: {travelers.children}</Text>
+            <Text style={styles.summaryTitle}>Summary</Text>
+            <Text>Region: {selectedRegion}</Text>
+            <Text>Dates: {startDate.toLocaleDateString()} - {endDate.toLocaleDateString()}</Text>
+            <Text>Adults: {numberOfAdults}, Children: {numberOfChildren}</Text>
+            <Text>Price ≤ {maxPrice}€</Text>
+            <Text>Stops: {stops.map(s => s.city).join(', ')}</Text>
+            <Text>Modes: {selectedModes.join(', ')}</Text>
           </View>
         );
       default:
@@ -232,176 +281,239 @@ const TripConfigurator = () => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.card}>
-        <StepIndicator
-          customStyles={customStyles}
-          currentPosition={step - 1}
-          labels={labels}
-          stepCount={labels.length}
-        />
-
-        <View style={styles.content}>
-          {renderStepContent()}
-        </View>
-
-        <View style={styles.buttonRow}>
-          {step > 1 && (
-            <TouchableOpacity style={styles.button} onPress={goBack}>
-              <Text style={styles.buttonText}>Back</Text>
-            </TouchableOpacity>
-          )}
-          {step < labels.length && (
-            <TouchableOpacity
-              style={[styles.button, !canGoNext() && styles.disabledButton]}
-              onPress={goNext}
-              disabled={!canGoNext()}
-            >
-              <Text style={styles.buttonText}>Next</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+      <View style={styles.backgroundSwiper}>
+        <Swiper autoplay loop showsPagination={false}><>
+          {bgImages.map((img, idx) => <View key={idx} style={styles.slide}><Image source={img} style={styles.backgroundImage} resizeMode='cover'/><View style={styles.descriptionOverlay}><Text style={styles.descriptionTitle}>{bgImagesDescription[idx].title}</Text><Text style={styles.descriptionText}>{bgImagesDescription[idx].text}</Text></View></View>)}
+        </></Swiper>
       </View>
+      <KeyboardAwareScrollView style={styles.scrollArea} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps='handled' enableOnAndroid extraScrollHeight={Platform.OS==='ios'?20:60}>
+        <StepIndicator customStyles={stepIndicatorStyles} currentPosition={step} labels={labels} stepCount={labels.length} />
+        <View style={styles.stepsContainer}>{renderContent()}</View>
+        <View style={styles.navContainer}>
+          {step>0 && <Pressable style={styles.navButton} onPress={onBack}><Text style={styles.buttonText}>Back</Text></Pressable>}
+          <Pressable style={[styles.navButton, !canNext()&&styles.buttonDisabled]} onPress={onNext} disabled={!canNext()}><Text style={styles.buttonText}>{step===labels.length-1?'Show Route': step===0?'Start':'Next'}</Text></Pressable>
+        </View>
+      </KeyboardAwareScrollView>
     </View>
   );
-};
-
-export default TripConfigurator;
+}
 
 const styles = StyleSheet.create({
-  container: {
+container: {
     flex: 1,
-    padding: 16,
-    justifyContent: 'center',
+    backgroundColor: 'transparent',   // für den Root-View
   },
-
-  card: {
-    backgroundColor: 'white',
-    padding: 16,
-    borderRadius: 20,
-    minHeight: 420, // consistent height for all steps
-    justifyContent: 'space-between',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 4,
+  scrollArea: {
+    flex: 1,
+    backgroundColor: 'transparent',
   },
-
-  content: {
+  scrollContent: {
     flexGrow: 1,
-    justifyContent: 'flex-start',
-    marginTop: 24,
+    paddingHorizontal: 8,
+    paddingTop: 16,
+    paddingBottom: 40,
   },
-
-  title: {
-    fontSize: 20,
+  backgroundSwiper: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex : -1
+  },
+  slide: {
+    width,
+    height,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backgroundImage: {
+    height,
+    width,
+    alignSelf: 'center',
+  },
+  descriptionOverlay: {
+    position: 'absolute',
+    bottom: height * 0.2,
+    left: 16,
+    right: 16,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 12,
+    padding: 12,
+  },
+  descriptionTitle: {
+    fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 16,
-    color: '#333',
-    textAlign: 'center',
+    color: '#fff',
   },
-
+  descriptionText: {
+    fontSize: 14,
+    color: '#fff',
+  },
+  stepText: {
+    fontSize: 16,
+    lineHeight: 24,
+    fontWeight: "700",
+    fontFamily: "Inter-Bold",
+    color: "#000",
+    alignSelf: 'center',
+    overflow: "hidden",
+    width: 134,
+    height: 28,
+    opacity: 0.7
+  },
   label: {
     fontSize: 16,
-    marginBottom: 6,
-    color: '#444',
+    lineHeight: 24,
+    fontWeight: "700",
+    fontFamily: "Inter-Bold",
+    color: "#000",
+    textAlign: "left",
+    alignSelf: "center",
+    overflow: "hidden",
+    opacity: 0.7
   },
-
+  modesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 8
+  },
+  modeItem: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    margin: 4
+  },
+  modeSelected: {
+    backgroundColor: '#aaa'
+  },
+  modeText: {
+    color: '#333'
+  },
+  modeTextSelected: {
+    color: '#fff'
+  },
   dropdown: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 20,
+    shadowColor: "rgba(0, 0, 0, 0.3)",
+    shadowOffset: {
+        width: 0,
+        height: 1
+    },
+    shadowRadius: 2,
+    elevation: 2,
+    shadowOpacity: 1,
+    borderRadius: 4,
+    backgroundColor: "#fff",
+    paddingHorizontal: 0,
+    width: "80%",
+    flex: 1
   },
-
-  dateButton: {
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-
-  counterContainer: {
-    marginBottom: 20,
-  },
-
-  counterLabel: {
-    fontSize: 16,
-    marginBottom: 8,
-  },
-
-  counterControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
+  item: {
     padding: 8,
-  },
-
-  counterButton: {
-    backgroundColor: '#007AFF',
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  counterButtonText: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-
-  counterValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    minWidth: 40,
-    textAlign: 'center',
-  },
-
-  summaryContainer: {
-    backgroundColor: '#f5f5f5',
-    padding: 16,
-    borderRadius: 8,
-  },
-
-  summaryTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-
-  summaryText: {
     fontSize: 16,
-    marginBottom: 8,
+    letterSpacing: 1,
+    lineHeight: 24,
+    fontFamily: "Roboto-Regular",
+    color: "#000",
+    textAlign: "left",
+    alignSelf: "stretch"
   },
-
-  buttonRow: {
+  row: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 24,
-  },
-
-  button: {
-    flex: 1,
-    backgroundColor: '#007AFF',
-    paddingVertical: 12,
-    marginHorizontal: 6,
-    borderRadius: 8,
     alignItems: 'center',
+    marginTop: 4
   },
-
-  disabledButton: {
-    backgroundColor: '#ccc',
+  addButton: {
+    margin:4,
+    width: "18%",
+    backgroundColor: '#aaa',
+    padding: 12,
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center'
   },
-
-  buttonText: {
+  addText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600'
   },
+  stopsContainer: {
+    marginTop: 12,
+    flexDirection: 'row',
+    flexWrap: 'wrap'
+  },
+  stopItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderColor: '#000',
+    borderWidth: 1,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+    margin: 4
+  },
+  stopText: {
+    marginRight: 6,
+    color: '#000'
+  },
+  removeText: {
+    color: '#000',
+    fontWeight: '600'
+  },
+  navContainer: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 24},
+  navButton: { backgroundColor: '#aaa', padding: 14, borderRadius: 6, alignItems: 'center', flex: 1, marginHorizontal: 4 },
+  buttonDisabled: { backgroundColor: '#ccc', borderColor: '#aaa' },
+  buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  summaryContainer: { marginTop: 16, padding: 12, backgroundColor: '#f5f5f5', borderRadius: 6 },
+  summaryTitle: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
+  summaryItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  editButton: { paddingVertical: 4, paddingHorizontal: 8, borderWidth: 1, borderColor: '#007AFF', borderRadius: 4 },
+  editText: { color: '#007AFF', fontWeight: '600' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { marginTop: 12, fontSize: 16, color: '#666' },
+  stepsContainer: {
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    paddingVertical: 8,
+  },
+  padding: {paddingVertical: 10},
+  scrollArea: {
+    flex: 1,
+    backgroundColor: 'transparent',  // damit der Swiper durchscheint
+  },
+  labelStepTitle: {
+      padding:10,
+      fontSize: 26,
+      fontWeight: "1000",
+      fontFamily: "Inter-Bold",
+      color: "#000",
+      alignSelf: 'center'
+  },
+  labelSettingsBoxTitle: {
+    fontSize: 20,
+    lineHeight: 24,
+    fontWeight: "700",
+    fontFamily: "Inter-Bold",
+    color: "#000",
+    alignSelf: 'center',
+    overflow: "hidden",
+  },
+  inputTextContainer: {
+    borderRadius: 4,
+    borderStyle: "solid",
+    borderColor: "#000",
+    borderWidth: 1,
+    width: "100%",
+    flex: 1,
+    alignSelf: "stretch"
+  },
+  inputText: {
+    fontSize: 16,
+    letterSpacing: 1,
+    lineHeight: 24,
+    fontFamily: "Roboto-Regular",
+    color: "#000",
+    textAlign: "left"
+  },
+
 });

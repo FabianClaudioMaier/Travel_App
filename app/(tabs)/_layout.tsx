@@ -33,9 +33,9 @@ return (
         }}
       />
       <Tabs.Screen
-        name="trips"
+        name="result"
         options={{
-          title: 'Trips',
+          title: 'Result',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="airplane" size={size} color={color} />
           ),
