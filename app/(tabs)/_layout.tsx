@@ -44,6 +44,7 @@ return (
       <Tabs.Screen
         name="community"
         options={{
+          headerShown: false,
           title: 'Community',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="people" size={size} color={color} />

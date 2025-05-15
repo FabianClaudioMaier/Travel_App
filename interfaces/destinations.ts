@@ -16,6 +16,7 @@ export interface City {
   IATA: string;
   city_name: string;
   id: string;
+  image_url: string;
 }
 
 export type Cities = City[];

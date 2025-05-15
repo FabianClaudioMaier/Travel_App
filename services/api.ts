@@ -1,5 +1,5 @@
 
-import { Cities, City, Regions } from '@/interfaces/destinations';
+import { Cities, City, Region, Regions } from '@/interfaces/destinations';
 import { PlaneRoutes } from '@/interfaces/routes';
 import axios from 'axios';
 
@@ -56,6 +56,18 @@ const api = {
                 console.log('Error fetching regions', error);
                 if (axios.isAxiosError(error)) {
                     throw new Error(`Failed to fetch regions: ${error.message}`);
+                }
+                throw error;
+            }
+        },
+        getRegionById: async (regionId: string): Promise<Region> => {
+            try {
+                const response = await axios.get<Region>(`${BASE_URL}/destinations/regions/${regionId}`);
+                return response.data;
+            } catch (error) {
+                console.log('Error fetching region by id', error);
+                if (axios.isAxiosError(error)) {
+                    throw new Error(`Failed to fetch region by id: ${error.message}`);
                 }
                 throw error;
             }
