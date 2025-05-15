@@ -18,8 +18,12 @@ import StepIndicator from 'react-native-step-indicator';
 import Swiper from 'react-native-swiper';
 import { useRouter } from 'expo-router';
 
+// API Client
+import api from '../services/api';
+import { Region, City } from '@/interfaces/destinations';
+
 // Components
-import InputDatePicker, { InputDatePickerProps } from '../components/InputDatePicker';
+import InputDatePicker from '../components/InputDatePicker';
 import MaximalPrice from '../components/MaximalPrice';
 import NumberOfPeople from '../components/NumberOfPeople';
 
@@ -39,21 +43,12 @@ const bgImagesDescription = [
   { title: 'Valleys of California', text: '' },
 ];
 
-// Data
-import regionsData from '../assets/data/regions.json';
-const { regions, airportCoordinates } = regionsData;
-const regionStopsMap = regions.reduce((acc: any, { region, city, airport }) => {
-  if (!acc[region]) acc[region] = [];
-  acc[region].push({ city, airport });
-  return acc;
-}, {});
-
 const MODES = [
   { key: 'bus', label: 'Bus' },
   { key: 'train', label: 'Train' },
   { key: 'flight', label: 'Airplane' },
 ];
-const OVERRIDE_CITY = 'Vienna';
+
 
 // Step Indicator labels & styles
 const labels = [
@@ -85,76 +80,91 @@ const stepIndicatorStyles = {
   labelSize: 1,
 };
 
-export default function HomeScreen() {
+export default function TripConfigurator() {
   const router = useRouter();
-  // States
-  const [step, setStep] = useState<number>(0);
-  const [locationLoading, setLocationLoading] = useState<boolean>(true);
-  const [startCity, setStartCity] = useState<string | null>(null);
-  const regionsList = Object.keys(regionStopsMap);
-  const [queryRegion, setQueryRegion] = useState<string>('');
-  const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
-  const [queryStop, setQueryStop] = useState<string>('');
-  const [selectedStop, setSelectedStop] = useState<{ city: string; airport: string } | null>(null);
-  const [stops, setStops] = useState<Array<{ city: string; airport: string }>>([]);
-  const [startDate, setStartDate] = useState<Date>(new Date());
-  const [showStartPicker, setShowStartPicker] = useState<boolean>(false);
-  const [endDate, setEndDate] = useState<Date>(new Date());
-  const [showEndPicker, setShowEndPicker] = useState<boolean>(false);
-  const [selectedModes, setSelectedModes] = useState<string[]>([]);
-  const [originAirport, setOriginAirport] = useState<string | null>(null);
-  const [destinationAirport, setDestinationAirport] = useState<string | null>(null);
-  const [showDropdown, setShowDropdown] = useState<boolean>(false);
-  const [maxPrice, setMaxPrice] = useState<number>(2000);
-  const [numberOfAdults, setNumberOfAdults] = useState<number>(1);
-  const [numberOfChildren, setNumberOfChildren] = useState<number>(0);
 
-  const findAirport = (city: string) => {
-    const entry = regions.find(r => r.city === city);
-    return entry?.airport || 'VIE';
+  // Stepper state
+  const [step, setStep] = useState(0);
+
+  // Loading & origin
+  const [locationLoading, setLocationLoading] = useState(true);
+  const [startCity, setStartCity] = useState<string | null>(null);
+  const [originAirport, setOriginAirport] = useState<string | null>(null);
+
+  // Data
+  const [regionsList, setRegionsList] = useState<Region[]>([]);
+  const [citiesList, setCitiesList] = useState<City[]>([]);
+
+  // Selection
+  const [queryRegion, setQueryRegion] = useState('');
+  const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
+  const [selectedRegionName, setSelectedRegionName] = useState<string | null>(null);
+
+  const [queryStop, setQueryStop] = useState('');
+  const [selectedStop, setSelectedStop] = useState<City | null>(null);
+  const [stops, setStops] = useState<City[]>([]);
+
+  // Steps 2-5
+  const [startDate, setStartDate] = useState(new Date());
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [endDate, setEndDate] = useState(new Date());
+  const [showEndPicker, setShowEndPicker] = useState(false);
+  const [maxPrice, setMaxPrice] = useState(2000);
+  const [numberOfAdults, setNumberOfAdults] = useState(1);
+  const [numberOfChildren, setNumberOfChildren] = useState(0);
+  const [selectedModes, setSelectedModes] = useState<string[]>([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+
+  // Helper: find airport from cities
+  const findAirport = (cityName: string) => {
+    const found = citiesList.find(c => c.city === cityName);
+    return found?.airport || 'VIE';
   };
 
-  // Location effect
+  // Load regions
+  useEffect(() => {
+    api.destinations.getAllRegions()
+      .then(setRegionsList)
+      .catch(err => console.error('Error loading regions', err))
+      .finally(() => setLocationLoading(false));
+  }, []);
+
+  // Load cities for region
+  useEffect(() => {
+    if (selectedRegionId) {
+      api.destinations.getCitiesByRegion(selectedRegionId)
+        .then(setCitiesList)
+        .catch(err => console.error('Error loading cities', err));
+    } else setCitiesList([]);
+  }, [selectedRegionId]);
+
+  // Get device location
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Erlaubnis benötigt', 'Standortzugriff ist erforderlich.');
-        setLocationLoading(false);
-        setStartCity(OVERRIDE_CITY);
-        const code = findAirport(OVERRIDE_CITY);
-        setOriginAirport(code);
-        setDestinationAirport(code);
+        setStartCity('Vienna');
+        setOriginAirport(findAirport('Vienna'));
         return;
       }
-      let city = OVERRIDE_CITY;
       try {
         const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest });
         const rev = await Location.reverseGeocodeAsync(loc.coords);
-        city = rev[0]?.city || rev[0]?.region || OVERRIDE_CITY;
-        city === 'Wien' ? city = OVERRIDE_CITY : null;
-      } catch {}
-      setStartCity(city);
-      const code = findAirport(city);
-      setOriginAirport(code);
-      setDestinationAirport(code);
-      setLocationLoading(false);
+        const city = rev[0]?.city || 'Vienna';
+        setStartCity(city);
+        setOriginAirport(findAirport(city));
+      } catch {
+        setStartCity('Vienna');
+        setOriginAirport(findAirport('Vienna'));
+      }
     })();
   }, []);
 
-  // Handlers
-  const onChangeStart = (_e: any, date?: Date) => { setShowStartPicker(false); date && setStartDate(date); };
-  const onChangeEnd = (_e: any, date?: Date) => { setShowEndPicker(false); date && setEndDate(date); };
-  const toggleMode = (key: string) => setSelectedModes(prev => prev.includes(key) ? prev.filter(m => m !== key) : [...prev, key]);
-  const addStop = () => { if (selectedStop && !stops.find(s => s.city === selectedStop.city) && stops.length < 5) { setStops([...stops, selectedStop]); setQueryStop(''); setSelectedStop(null); }};
-  const removeStop = (city: string) => setStops(stops.filter(s => s.city !== city));
-
-  const suggestionsRegion = regionsList.filter(r => r.toLowerCase().includes(queryRegion.trim().toLowerCase()));
-  const suggestionsStop = selectedRegion ? regionStopsMap[selectedRegion].filter(({ city }) => city.toLowerCase().includes(queryStop.trim().toLowerCase())) : [];
-
+  // Navigation logic
   const canNext = () => {
     switch (step) {
-      case 0: return !!selectedRegion;
+      case 0: return !!selectedRegionId;
       case 1: return numberOfAdults + numberOfChildren > 0;
       case 2: return !!endDate;
       case 3: return maxPrice > 0;
@@ -165,28 +175,49 @@ export default function HomeScreen() {
   };
 
   const onNext = () => {
-    if (step < labels.length - 1) {
-      setStep(s => s + 1);
-    } else {
+    if (step < labels.length - 1) setStep(step + 1);
+    else {
       router.push({
         pathname: '/result',
         params: {
-          origin: startCity!,
-          stops: stops.map(s => s.city),
-          destination: startCity!,
-          modes: selectedModes,
+          regionId: selectedRegionId,
+          regionName: selectedRegionName,
+          origin: startCity,
           originAirport,
-          destinationAirport,
-          stopsAirport: stops.map(s => s.airport)
+          stops: stops.map(s => s.city),
+          stopsAirport: stops.map(s => s.airport),
+          modes: selectedModes,
+          dates: { start: startDate, end: endDate },
+          price: maxPrice,
+          people: { adults: numberOfAdults, children: numberOfChildren }
         }
       });
     }
   };
-  const onBack = () => step > 0 && setStep(s => s - 1);
 
-  if (locationLoading) {
-    return <View style={styles.loadingContainer}><ActivityIndicator size='large' /><Text style={styles.loadingText}>Standort wird ermittelt...</Text></View>;
-  }
+  // Suggestions
+  const suggestionsRegion = regionsList.filter(r =>
+    r.region.toLowerCase().includes(queryRegion.toLowerCase())
+  );
+  const suggestionsStop = citiesList.filter(c =>
+    c.city.toLowerCase().includes(queryStop.toLowerCase())
+  );
+
+  // Add/Remove stops
+  const addStop = () => {
+    if (selectedStop && !stops.some(s => s.city === selectedStop.city) && stops.length < 5) {
+      setStops([...stops, selectedStop]); setQueryStop(''); setSelectedStop(null);
+    }
+  };
+  const removeStop = (city: string) => setStops(stops.filter(s => s.city !== city));
+
+  // Render loading
+  if (locationLoading) return (
+    <View style={styles.loadingContainer}>
+      <ActivityIndicator size="large" />
+      <Text>Loading...</Text>
+    </View>
+  );
 
   // Render step content
   const renderContent = () => {
@@ -194,10 +225,22 @@ export default function HomeScreen() {
       case 0:
         return (
           <>
-            <TextInput style={[styles.inputTextContainer, styles.inputText]} placeholder='Choose a region...' value={queryRegion} onChangeText={t => { setQueryRegion(t); setSelectedRegion(null); setShowDropdown(true); }} />
-            {queryRegion.length > 0 && showDropdown && (
+            <TextInput
+              style={styles.inputText}
+              placeholder="Choose a region..."
+              value={queryRegion}
+              onChangeText={text => { setQueryRegion(text); setSelectedRegionId(null); setShowDropdown(true); }}
+            />
+            {showDropdown && (
               <View style={styles.dropdown}>
-                {suggestionsRegion.map(item => <TouchableOpacity key={item} onPress={() => { setQueryRegion(item); setSelectedRegion(item); setShowDropdown(false); }}><Text style={styles.item}>{item}</Text></TouchableOpacity>)}
+                {suggestionsRegion.map(r => (
+                  <TouchableOpacity
+                    key={r.id}
+                    onPress={() => { setQueryRegion(r.region); setSelectedRegionId(r.id); setSelectedRegionName(r.region); setShowDropdown(false); }}
+                  >
+                    <Text style={styles.item}>{r.region}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             )}
           </>
@@ -211,49 +254,42 @@ export default function HomeScreen() {
       case 4:
         return (
           <View>
-            <Text style={styles.label}>Stops in {selectedRegion}</Text>
-              <View style={[styles.row,styles.inputTextContainer]}>
-                <TextInput
-                  style={[styles.inputText, { flex: 1 }]}
-                  placeholder='Stopp eingeben...'
-                  value={queryStop}
-                  onChangeText={t => { setQueryStop(t); setSelectedStop(null); }}
-                />
-                <Pressable
-                  style={[styles.addButton,
-                    (!selectedStop || stops.find(s => s.city === selectedStop.city) || stops.length >= 5)
-                    && styles.buttonDisabled
-                  ]}
-                  onPress={addStop}
-                  disabled={!selectedStop || stops.find(s => s.city === selectedStop.city) || stops.length >= 5}
-                >
-                  <Text style={styles.addText}>Add</Text>
-                </Pressable>
+            <Text style={styles.label}>Stops in {selectedRegionName}</Text>
+            <View style={styles.row}>
+              <TextInput
+                style={[styles.inputText, { flex: 1 }]}
+                placeholder="Enter a stop..."
+                value={queryStop}
+                onChangeText={text => { setQueryStop(text); setSelectedStop(null); }}
+              />
+              <Pressable
+                style={[styles.addButton, (!selectedStop || stops.some(s => s.city === selectedStop.city)) && styles.buttonDisabled]}
+                onPress={addStop} disabled={!selectedStop || stops.some(s => s.city === selectedStop.city)}
+              >
+                <Text style={styles.addText}>Add</Text>
+              </Pressable>
+            </View>
+            {queryStop.length > 0 && (
+              <View style={styles.dropdown}>
+                {suggestionsStop.map(c => (
+                  <TouchableOpacity key={c.id} onPress={() => { setQueryStop(c.city); setSelectedStop(c); }}>
+                    <Text style={styles.item}>{c.city}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-              {queryStop.length > 0 && (
-                <View style={styles.dropdown}>
-                  {suggestionsStop.map(item => (
-                    <TouchableOpacity
-                      key={item.city}
-                      onPress={() => { setQueryStop(item.city); setSelectedStop(item); }}
-                    >
-                      <Text style={styles.item}>{item.city}</Text>
+            )}
+            {stops.length > 0 && (
+              <View style={styles.stopsContainer}>
+                {stops.map((s, i) => (
+                  <View key={i} style={styles.stopItem}>
+                    <Text style={styles.stopText}>{s.city}</Text>
+                    <TouchableOpacity onPress={() => removeStop(s.city)}>
+                      <Text style={styles.removeText}>✕</Text>
                     </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-              {stops.length > 0 && (
-                <View style={styles.stopsContainer}>
-                  {stops.map((stop, i) => (
-                    <View key={i} style={styles.stopItem}>
-                      <Text style={styles.stopText}>{stop.city}</Text>
-                      <TouchableOpacity onPress={() => removeStop(stop.city)}>
-                        <Text style={styles.removeText}>✕</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </View>
-              )}
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         );
       case 5:
@@ -266,7 +302,7 @@ export default function HomeScreen() {
         return (
           <View style={styles.summaryContainer}>
             <Text style={styles.summaryTitle}>Summary</Text>
-            <Text>Region: {selectedRegion}</Text>
+            <Text>Region: {selectedRegionName}</Text>
             <Text>Dates: {startDate.toLocaleDateString()} - {endDate.toLocaleDateString()}</Text>
             <Text>Adults: {numberOfAdults}, Children: {numberOfChildren}</Text>
             <Text>Price ≤ {maxPrice}€</Text>
@@ -282,16 +318,24 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.backgroundSwiper}>
-        <Swiper autoplay loop showsPagination={false}><>
-          {bgImages.map((img, idx) => <View key={idx} style={styles.slide}><Image source={img} style={styles.backgroundImage} resizeMode='cover'/><View style={styles.descriptionOverlay}><Text style={styles.descriptionTitle}>{bgImagesDescription[idx].title}</Text><Text style={styles.descriptionText}>{bgImagesDescription[idx].text}</Text></View></View>)}
-        </></Swiper>
+        <Swiper autoplay loop showsPagination={false}>
+          {bgImages.map((img, idx) => (
+            <View key={idx} style={styles.slide}>
+              <Image source={img} style={styles.backgroundImage} resizeMode="cover" />
+              <View style={styles.descriptionOverlay}>
+                <Text style={styles.descriptionTitle}>{bgImagesDescription[idx].title}</Text>
+                <Text style={styles.descriptionText}>{bgImagesDescription[idx].text}</Text>
+              </View>
+            </View>
+          ))}
+        </Swiper>
       </View>
-      <KeyboardAwareScrollView style={styles.scrollArea} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps='handled' enableOnAndroid extraScrollHeight={Platform.OS==='ios'?20:60}>
+      <KeyboardAwareScrollView style={styles.scrollArea} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" enableOnAndroid extraScrollHeight={Platform.OS==='ios'?20:60}>
         <StepIndicator customStyles={stepIndicatorStyles} currentPosition={step} labels={labels} stepCount={labels.length} />
         <View style={styles.stepsContainer}>{renderContent()}</View>
         <View style={styles.navContainer}>
-          {step>0 && <Pressable style={styles.navButton} onPress={onBack}><Text style={styles.buttonText}>Back</Text></Pressable>}
-          <Pressable style={[styles.navButton, !canNext()&&styles.buttonDisabled]} onPress={onNext} disabled={!canNext()}><Text style={styles.buttonText}>{step===labels.length-1?'Show Route': step===0?'Start':'Next'}</Text></Pressable>
+          {step>0 && <Pressable style={styles.navButton} onPress={() => setStep(step-1)}><Text style={styles.buttonText}>Back</Text></Pressable>}
+          <Pressable style={[styles.navButton, !canNext() && styles.buttonDisabled]} onPress={onNext} disabled={!canNext()}><Text style={styles.buttonText}>{step===labels.length-1?'Show Route': step===0?'Start':'Next'}</Text></Pressable>
         </View>
       </KeyboardAwareScrollView>
     </View>
