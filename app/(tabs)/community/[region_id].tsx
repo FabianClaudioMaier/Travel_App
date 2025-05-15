@@ -6,17 +6,17 @@ import { FlatList, Image, Text, View } from 'react-native'
 import CityCard from '@/components/community/CityCard'
 
 const CommunityDetail = () => {
-  const { id } = useLocalSearchParams()
+  const { region_id } = useLocalSearchParams()
   const [region, setRegion] = useState<Region>()
   const [cities, setCities] = useState<Cities>()
 
   const fetchRegion = async () => {
-    const region = await api.destinations.getRegionById(id as string)
+    const region = await api.destinations.getRegionById(region_id as string)
     setRegion(region)
   }
 
   const fetchCities = async () => {
-    const cities = await api.destinations.getCitiesByRegion(id as string)
+    const cities = await api.destinations.getCitiesByRegion(region_id as string)
     setCities(cities)
   }
 
