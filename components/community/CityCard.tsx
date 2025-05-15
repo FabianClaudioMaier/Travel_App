@@ -1,4 +1,4 @@
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import React from 'react'
 import { City, Region } from '@/interfaces/destinations'
 import { router } from 'expo-router'
@@ -9,7 +9,7 @@ const CityCard = ({ city }: { city: City }) => {
 
 
   return (
-    <Pressable
+    <TouchableOpacity
       onPress={() => router.push(`/community/forum/${id}`)}
       className="rounded-lg shadow-md bg-white rounded-xl m-4"
     >
@@ -23,7 +23,7 @@ const CityCard = ({ city }: { city: City }) => {
           <Text className="text-xl font-bold">{city_name}</Text>
         </View>
       </View>
-    </Pressable>
+    </TouchableOpacity>
   )
 }
 

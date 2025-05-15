@@ -1,4 +1,4 @@
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import React from 'react'
 import { Region } from '@/interfaces/destinations'
 import { router } from 'expo-router'
@@ -11,7 +11,7 @@ const RegionCard = ({ region }: { region: Region }) => {
   }
 
   return (
-    <Pressable
+    <TouchableOpacity
       onPress={handlePress}
       className="rounded-lg shadow-md bg-white rounded-xl m-4"
     >
@@ -26,7 +26,7 @@ const RegionCard = ({ region }: { region: Region }) => {
           <Text className="text-md text-gray-500">{description}</Text>
         </View>
       </View>
-    </Pressable>
+    </TouchableOpacity>
   )
 }
 
