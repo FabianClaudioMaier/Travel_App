@@ -10,7 +10,7 @@ const CityCard = ({ city }: { city: City }) => {
 
   return (
     <Pressable
-      onPress={() => router.push(`/community/city_forum/${id}`)}
+      onPress={() => router.push(`/community/forum/${id}`)}
       className="rounded-lg shadow-md bg-white rounded-xl m-4"
     >
       <Image
