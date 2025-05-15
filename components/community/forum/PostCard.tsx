@@ -19,7 +19,7 @@ const Rating = ({ rating }: { rating: number }) => {
 
 const PostCard = ({ post }: PostCardProps) => {
   return (
-    <View className="bg-white rounded-lg p-4 shadow-md mb-4">
+    <View className="bg-white rounded-lg p-4 shadow-md m-4">
       <View className="flex-row items-center justify-between">
         <Text className="text-lg font-bold">{post.title}</Text>
         <Rating rating={post.rating} />

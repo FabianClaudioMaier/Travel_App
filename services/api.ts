@@ -1,5 +1,6 @@
 
 import { Cities, City, Region, Regions } from '@/interfaces/destinations';
+import { Posts } from '@/interfaces/forum';
 import { PlaneRoutes } from '@/interfaces/routes';
 import axios from 'axios';
 
@@ -88,6 +89,19 @@ const api = {
         throw error;
       }
     },
+  },
+  forum: {
+    getPostsByCityId: async (cityId: string): Promise<Posts> => {
+      try {
+        const response = await axios.get<Posts>(`${BASE_URL}/forum/posts_by_city?city=${cityId}`);
+        return response.data;
+      } catch (error) {
+        if (axios.isAxiosError(error)) {
+          throw new Error(`Failed to fetch posts: ${error.message}`);
+        }
+        throw error;
+      }
+    }
   }
 };
 

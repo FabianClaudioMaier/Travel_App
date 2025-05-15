@@ -12,6 +12,7 @@ return (
           borderTopWidth: 1,
           borderTopColor: '#E5E5EA',
         },
+        headerShown: false,
       }}
     >
       <Tabs.Screen
