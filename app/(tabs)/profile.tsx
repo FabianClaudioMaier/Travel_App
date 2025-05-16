@@ -6,13 +6,10 @@ import {
   StyleSheet,
   TouchableOpacity,
   ListRenderItemInfo,
+  ScrollView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {
-  useIsFocused,
-  useNavigation,
-  NavigationProp,
-} from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import ProfileImage from '@/components/ProfileData/ProfileImage';
 import ProfileName from '@/components/ProfileData/ProfileName';
 import ProfileEmail from '@/components/ProfileData/ProfileEmail';
@@ -26,8 +23,11 @@ import ProfileTransportation from '@/components/ProfileData/ProfileTransportatio
 // --- Typen für gespeicherte Reisen ---
 interface TravelRecord {
   origin: string;
+  originAirport?: string;        // neu
   stops: string[];
+  stopsAirport?: string[];       // neu
   destination: string;
+  destinationAirport?: string;   // neu
   modes?: string[];
   start_date?: string;
   end_date?: string;
@@ -39,13 +39,12 @@ interface TravelRecord {
   route?: { distanceMeters?: number };
 }
 
-// Navigation-Typ (ggf. genauer spezifizieren)
-type ProfileScreenNavProp = NavigationProp<any>;
+
 
 export default function ProfileScreen() {
   const [travels, setTravels] = useState<TravelRecord[]>([]);
-  const isFocused = useIsFocused();
-  const navigation = useNavigation<ProfileScreenNavProp>();
+  const router = useRouter();
+
 
   useEffect(() => {
     (async () => {
@@ -57,7 +56,7 @@ export default function ProfileScreen() {
         console.warn('Failed to load travels', e);
       }
     })();
-  }, [isFocused]);
+  });
 
   const renderItem = ({ item }: ListRenderItemInfo<TravelRecord>) => {
     const {
@@ -96,9 +95,19 @@ export default function ProfileScreen() {
       <TouchableOpacity
         style={styles.card}
         onPress={() =>
-          navigation.navigate('HomeTab', {
-            screen: 'Result',
-            params: { origin, stops, destination, modes, start_date, end_date },
+          router.push({
+            pathname: '/result',
+            params: {
+              origin:              item.origin,
+              originAirport:       item.originAirport  ?? '',
+              stops:               item.stops,
+              stopsAirport:        item.stopsAirport   ?? [],
+              destination:         item.destination,
+              destinationAirport:  item.destinationAirport ?? '',
+              modes:               item.modes?.join(',') ?? '',
+              start_date:          item.start_date     ?? '',
+              end_date:            item.end_date       ?? '',
+            },
           })
         }
       >
@@ -111,23 +120,33 @@ export default function ProfileScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>MyTravels</Text>
-      <ProfileImage/>
-      <ProfileName/>
-      <ProfileEmail/>
-      <ProfilePassword/>
-      <ProfileHometown/>
-      <ProfileAnonymousmode/>
-      <ProfileTransportation/>
       <FlatList
         data={travels}
         keyExtractor={(_, idx) => idx.toString()}
         renderItem={renderItem}
-        ListEmptyComponent={<Text style={styles.empty}>No saved travels yet.</Text>}
+        ListEmptyComponent={
+          <Text style={styles.empty}>No saved travels yet.</Text>
+        }
+        // Profile-Bausteine oben als Header:
+        ListHeaderComponent={
+          <>
+            <Text style={styles.header}>MyTravels</Text>
+            <ProfileImage />
+            <ProfileName />
+            <ProfileEmail />
+            <ProfilePassword />
+            <ProfileHometown />
+            <ProfileAnonymousmode />
+            <ProfileServices />
+            <ProfileTransportation />
+          </>
+        }
+        // Wenn leer, damit Header trotzdem Padding hat:
+        contentContainerStyle={
+          travels.length === 0 ? styles.container : undefined
+        }
       />
-    </View>
-  );
+    );
 }
 
 const styles = StyleSheet.create({

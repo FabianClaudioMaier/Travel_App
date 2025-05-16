@@ -59,11 +59,12 @@ export default function Summary({
 
 const styles = StyleSheet.create({
   container: {
-    width: '100%',
-    backgroundColor: '#f0f0f0',
+    width: '80%',
+    backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
-    alignItems: 'center'
+    alignItems: 'center',
+    alignSelf: 'center'
   },
   checkTitle: {
     fontSize: 18,
@@ -81,6 +82,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
+    width: '50%',
   },
   text: {
     marginLeft: 8,

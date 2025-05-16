@@ -138,11 +138,11 @@ const api = {
     uploadImages: async (images: string[]): Promise<{image_urls: string[]}> => {
       try {
         const formData = new FormData();
-        
+
         images.forEach((imageUri, index) => {
           formData.append('files', {
             uri: imageUri,
-            type: 'image/*', 
+            type: 'image/*',
             name: `image${index}${imageUri.substring(imageUri.lastIndexOf('.'))}`
           } as any);
         });
@@ -188,7 +188,7 @@ const api = {
           `${BASE_URL}/forum/posts`,
           postData
         );
-        
+
         return response.data;
       } catch (error) {
         if (axios.isAxiosError(error)) {
