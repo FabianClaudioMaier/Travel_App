@@ -13,6 +13,15 @@ import {
   useNavigation,
   NavigationProp,
 } from '@react-navigation/native';
+import ProfileImage from '@/components/ProfileData/ProfileImage';
+import ProfileName from '@/components/ProfileData/ProfileName';
+import ProfileEmail from '@/components/ProfileData/ProfileEmail';
+import ProfilePassword from '@/components/ProfileData/ProfilePassword';
+import ProfileHometown from '@/components/ProfileData/ProfileHometown';
+import ProfileAnonymousmode from '@/components/ProfileData/ProfileAnonymousmode';
+import ProfileServices from '@/components/ProfileData/ProfileServices';
+import ProfileTransportation from '@/components/ProfileData/ProfileTransportation';
+
 
 // --- Typen für gespeicherte Reisen ---
 interface TravelRecord {
@@ -104,6 +113,13 @@ export default function ProfileScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.header}>MyTravels</Text>
+      <ProfileImage/>
+      <ProfileName/>
+      <ProfileEmail/>
+      <ProfilePassword/>
+      <ProfileHometown/>
+      <ProfileAnonymousmode/>
+      <ProfileTransportation/>
       <FlatList
         data={travels}
         keyExtractor={(_, idx) => idx.toString()}
