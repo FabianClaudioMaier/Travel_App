@@ -115,11 +115,11 @@ export default function TripConfigurator() {
   const [selectedModes, setSelectedModes] = useState<string[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
 
-  // Helper: find airport from cities
-  const findAirport = (cityName: string) => {
-    const found = citiesList.find(c => c.city === cityName);
-    return found?.airport || 'VIE';
-  };
+    // Hilfsfunktion Airport finden (Interface: City.IATA)
+    const findAirport = (cityName: string) => {
+      const found = citiesList.find(c => c.city_name === cityName);
+      return found?.IATA || 'VIE';
+    };
 
   // Load regions
   useEffect(() => {
@@ -161,6 +161,32 @@ export default function TripConfigurator() {
     })();
   }, []);
 
+    // Datum-Picker Handlers
+    const onChangeStart = (_event: any, selectedDate?: Date) => {
+      // Wenn der Nutzer abgebrochen hat, selectedDate ist undefined
+      if (selectedDate) {
+        setStartDate(selectedDate);
+      }
+      setShowStartPicker(false);
+    };
+
+    const onChangeEnd = (_event: any, selectedDate?: Date) => {
+      if (selectedDate) {
+        setEndDate(selectedDate);
+      }
+      setShowEndPicker(false);
+    };
+
+    // Transport-Modi umschalten
+    const toggleMode = (modeKey: string) => {
+      setSelectedModes(prev =>
+        prev.includes(modeKey)
+          ? prev.filter(m => m !== modeKey)   // entfernen, wenn schon drin
+          : [...prev, modeKey]                // hinzufügen, wenn nicht drin
+      );
+    };
+
+
   // Navigation logic
   const canNext = () => {
     switch (step) {
@@ -184,8 +210,8 @@ export default function TripConfigurator() {
           regionName: selectedRegionName,
           origin: startCity,
           originAirport,
-          stops: stops.map(s => s.city),
-          stopsAirport: stops.map(s => s.airport),
+          stops: stops.map(s => s.city_name),
+          stopsAirport: stops.map(s => s.IATA),
           modes: selectedModes,
           dates: { start: startDate, end: endDate },
           price: maxPrice,
@@ -196,20 +222,26 @@ export default function TripConfigurator() {
   };
 
   // Suggestions
-  const suggestionsRegion = regionsList.filter(r =>
-    r.region.toLowerCase().includes(queryRegion.toLowerCase())
-  );
+  const normalizedQuery = (queryRegion || '').toLowerCase();
+  const suggestionsRegion = regionsList.filter(r => {
+   const label = (r.name || '').toLowerCase();
+   return label.includes(normalizedQuery);
+  });
+    // Suggestions für Stops (Interface: City.city_name)
+  const normalizedStopQuery = (queryStop || '').toLowerCase();
   const suggestionsStop = citiesList.filter(c =>
-    c.city.toLowerCase().includes(queryStop.toLowerCase())
+    (c.city_name || '').toLowerCase().includes(normalizedStopQuery)
   );
 
   // Add/Remove stops
   const addStop = () => {
-    if (selectedStop && !stops.some(s => s.city === selectedStop.city) && stops.length < 5) {
-      setStops([...stops, selectedStop]); setQueryStop(''); setSelectedStop(null);
+    if (selectedStop && !stops.some(s => s.city_name === selectedStop.city_name) && stops.length < 5) {
+      setStops([...stops, selectedStop]);
+      setQueryStop('');
+      setSelectedStop(null);
     }
   };
-  const removeStop = (city: string) => setStops(stops.filter(s => s.city !== city));
+  const removeStop = (cityName: string) => setStops(stops.filter(s => s.city_name !== cityName));
 
   // Render loading
   if (locationLoading) return (
@@ -236,9 +268,13 @@ export default function TripConfigurator() {
                 {suggestionsRegion.map(r => (
                   <TouchableOpacity
                     key={r.id}
-                    onPress={() => { setQueryRegion(r.region); setSelectedRegionId(r.id); setSelectedRegionName(r.region); setShowDropdown(false); }}
+                    onPress={() => {
+                      setQueryRegion(r.name);
+                      setSelectedRegionId(r.id);
+                      setSelectedRegionName(r.name);
+                      setShowDropdown(false); }}
                   >
-                    <Text style={styles.item}>{r.region}</Text>
+                        <Text style={styles.item}>{r.name}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -254,8 +290,20 @@ export default function TripConfigurator() {
       case 4:
         return (
           <View>
-            <Text style={styles.label}>Stops in {selectedRegionName}</Text>
-            <View style={styles.row}>
+            <Text style={styles.label}>Select Stops in {selectedRegionName}</Text>
+            {stops.length > 0 && (
+              <View style={styles.stopsContainer}>
+                {stops.map((s, i) => (
+                  <View key={i} style={styles.stopItem}>
+                    <Text style={styles.stopText}>{s.city_name}</Text>
+                    <TouchableOpacity onPress={() => removeStop(s.city_name)}>
+                      <Text style={styles.removeText}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+            <View style={[styles.row, styles.inputTextContainer]}>
               <TextInput
                 style={[styles.inputText, { flex: 1 }]}
                 placeholder="Enter a stop..."
@@ -263,8 +311,8 @@ export default function TripConfigurator() {
                 onChangeText={text => { setQueryStop(text); setSelectedStop(null); }}
               />
               <Pressable
-                style={[styles.addButton, (!selectedStop || stops.some(s => s.city === selectedStop.city)) && styles.buttonDisabled]}
-                onPress={addStop} disabled={!selectedStop || stops.some(s => s.city === selectedStop.city)}
+                style={[styles.addButton, (!selectedStop || stops.some(s => s.city_name === selectedStop.city_name)) && styles.buttonDisabled]}
+                onPress={addStop} disabled={!selectedStop || stops.some(s => s.city_name === selectedStop.city_name)}
               >
                 <Text style={styles.addText}>Add</Text>
               </Pressable>
@@ -272,21 +320,13 @@ export default function TripConfigurator() {
             {queryStop.length > 0 && (
               <View style={styles.dropdown}>
                 {suggestionsStop.map(c => (
-                  <TouchableOpacity key={c.id} onPress={() => { setQueryStop(c.city); setSelectedStop(c); }}>
-                    <Text style={styles.item}>{c.city}</Text>
+                  <TouchableOpacity key={c.id} onPress={() => {
+                     setQueryStop(c.city_name);
+                     setSelectedStop(c);
+                     }}
+                  >
+                    <Text style={styles.item}>{c.city_name}</Text>
                   </TouchableOpacity>
-                ))}
-              </View>
-            )}
-            {stops.length > 0 && (
-              <View style={styles.stopsContainer}>
-                {stops.map((s, i) => (
-                  <View key={i} style={styles.stopItem}>
-                    <Text style={styles.stopText}>{s.city}</Text>
-                    <TouchableOpacity onPress={() => removeStop(s.city)}>
-                      <Text style={styles.removeText}>✕</Text>
-                    </TouchableOpacity>
-                  </View>
                 ))}
               </View>
             )}
@@ -306,7 +346,7 @@ export default function TripConfigurator() {
             <Text>Dates: {startDate.toLocaleDateString()} - {endDate.toLocaleDateString()}</Text>
             <Text>Adults: {numberOfAdults}, Children: {numberOfChildren}</Text>
             <Text>Price ≤ {maxPrice}€</Text>
-            <Text>Stops: {stops.map(s => s.city).join(', ')}</Text>
+            <Text>Stops: {stops.map(s => s.city_name).join(', ')}</Text>
             <Text>Modes: {selectedModes.join(', ')}</Text>
           </View>
         );

@@ -97,6 +97,8 @@ export default function ResultScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<ResultScreenParams>();
 
+  console.log('🎯 ResultScreen Params:', params);
+
   // URL-Parameter auslesen
   const origin = params.origin!;
   const rawStops = params.stops;
@@ -166,14 +168,15 @@ export default function ResultScreen() {
   const fetchAndCompute = async () => {
     const names = [origin, ...stops, destination];
     const codes = [originAirport, ...stopsAirport, destinationAirport];
-    const useTransit = modes.includes('transit');
-    const useFlight  = modes.includes('flight');
+    console.log('🧭 Computing route for:', names, 'with airports', codes, 'modes', modes);
 
     const legsData = await Promise.all(
-      names.slice(0,-1).map(async (fromName,i) => {
-        const toName   = names[i+1];
+      names.slice(0,-1).map(async (fromName, i) => {
+        const toName = names[i+1];
         const fromCode = codes[i]   || '';
         const toCode   = codes[i+1] || '';
+        console.log(`➡️ Leg ${i}: ${fromName}→${toName}`, { fromCode, toCode });
+
         const candidates: Leg['route'][] = [];
 
         if (useTransit) {
@@ -181,6 +184,8 @@ export default function ResultScreen() {
             fetchLegMode('buses', fromName, toName),
             fetchLegMode('trains', fromName, toName),
           ]);
+          console.log(`   • got ${busArr.length} bus, ${trainArr.length} train options`);
+
           const bestBus   = pickFastest(busArr.map(r => ({
             duration: r.duration,
             distanceMeters: r.distanceMeters,
@@ -199,6 +204,8 @@ export default function ResultScreen() {
 
         if (useFlight && fromCode && toCode) {
           const flights = await fetchFlights(fromCode, toCode);
+          console.log(`   • got ${flights.length} flight options`);
+
           if (flights.length > 0) {
             const bestF = flights.reduce((b,f) =>
               f.total_distance < b.total_distance ? f : b, flights[0]
@@ -222,43 +229,54 @@ export default function ResultScreen() {
         const best = candidates.reduce((b,cur) =>
           toSeconds(cur.duration) < toSeconds(b.duration) ? cur : b
         );
+        console.log(`   ⇒ best candidate for leg ${i}:`, best);
+
         return {
           route: best,
           label: candidates.length > 1 && 'duration' in best ? 'Transit' : 'Flug',
         };
       })
     );
-
+    console.log('🏁 All legs computed:', legsData);
     setFinalLegs(legsData);
   };
 
   // Init: gespeicherte Route oder neu berechnen
-  useEffect(() => {
-    (async () => {
-      let found = false;
-      try {
-        const json = await AsyncStorage.getItem('myTravels');
-        const trips = json ? JSON.parse(json) : [];
-        const match = trips.find((t: any) =>
-          t.origin === origin &&
-          JSON.stringify(t.stops) === JSON.stringify(stops) &&
-          t.destination === destination &&
-          JSON.stringify(t.modes) === JSON.stringify(modes) &&
-          t.start_date === rawStart &&
-          t.end_date === rawEnd
-        );
-        if (match && Array.isArray(match.legs)) {
-          setFinalLegs(match.legs);
-          found = true;
-        }
-      } catch { /* ignore */ }
+     useEffect(() => {
+        (async () => {
+          console.log('🔍 Checking AsyncStorage for existing route…');
+          let found = false;
+          try {
+            const json = await AsyncStorage.getItem('myTravels');
+            console.log('💾 Loaded myTravels:', json);
+            const trips = json ? JSON.parse(json) : [];
+            const match = trips.find((t: any) =>
+              t.origin === origin &&
+              JSON.stringify(t.stops) === JSON.stringify(stops) &&
+              t.destination === destination &&
+              JSON.stringify(t.modes) === JSON.stringify(modes) &&
+              t.start_date === rawStart &&
+              t.end_date === rawEnd
+            );
+            if (match && Array.isArray(match.legs)) {
+              console.log('✅ Found cached route:', match);
+              setFinalLegs(match.legs);
+              found = true;
+            }
+          } catch (e){
+            console.warn('⚠️ Error reading AsyncStorage', e);
+          }
 
-      if (!found) {
-        await fetchAndCompute();
-      }
-      setLoading(false);
-    })();
-  }, []);
+          if (!found) {
+            console.log('🚀 No cached route, computing new one…');
+            await fetchAndCompute();
+          }
+          setLoading(false);
+          console.log('🔔 Loading complete, finalLegs:', finalLegs);
+        })();
+      }, []);
+
+
 
   // Speichern
   const onSave = async () => {
@@ -289,6 +307,7 @@ export default function ResultScreen() {
 
   // Route-Karten rendern
   const renderRouteCard = (leg: Leg|null, idx: number) => {
+    console.log(`🗺️ Rendering card ${idx}`, leg);
     if (!leg) return null;
     const { route, label } = leg;
     const coords: LatLng[] =
