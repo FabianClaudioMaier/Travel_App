@@ -17,6 +17,7 @@ import * as Location from 'expo-location';
 import StepIndicator from 'react-native-step-indicator';
 import Swiper from 'react-native-swiper';
 import { useRouter } from 'expo-router';
+import Summary from '../components/Summary';
 
 // API Client
 import api from '../services/api';
@@ -340,15 +341,15 @@ export default function TripConfigurator() {
         );
       case 6:
         return (
-          <View style={styles.summaryContainer}>
-            <Text style={styles.summaryTitle}>Summary</Text>
-            <Text>Region: {selectedRegionName}</Text>
-            <Text>Dates: {startDate.toLocaleDateString()} - {endDate.toLocaleDateString()}</Text>
-            <Text>Adults: {numberOfAdults}, Children: {numberOfChildren}</Text>
-            <Text>Price ≤ {maxPrice}€</Text>
-            <Text>Stops: {stops.map(s => s.city_name).join(', ')}</Text>
-            <Text>Modes: {selectedModes.join(', ')}</Text>
-          </View>
+          <Summary
+            people={numberOfAdults + numberOfChildren}
+            region={selectedRegionName ?? ''}
+            stops={stops.map(s => s.city_name)}
+            price={maxPrice}
+            modes={selectedModes}
+            startDate={startDate}
+            endDate={endDate}
+          />
         );
       default:
         return null;
