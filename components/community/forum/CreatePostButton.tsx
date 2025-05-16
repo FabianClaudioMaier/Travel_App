@@ -47,6 +47,10 @@ const CreatePostButton = ({ region_id, onPostCreated }: CreatePostButtonProps) =
             newErrors.rating = 'Rating is required';
         }
 
+        if (!selectedCity) {
+            newErrors.city = 'City is required';
+        }
+
         setErrors(newErrors);
 
         if (Object.keys(newErrors).length > 0) return;
@@ -59,8 +63,7 @@ const CreatePostButton = ({ region_id, onPostCreated }: CreatePostButtonProps) =
                 uploadedImageUrls = imageUploadResult.image_urls;
             }
 
-            // Then create the post
-            const res = await api.forum.createPost({
+            const data = {
                 region_id,
                 city_id: selectedCity,
                 title,
@@ -69,7 +72,11 @@ const CreatePostButton = ({ region_id, onPostCreated }: CreatePostButtonProps) =
                 date: date.toISOString(),
                 author: "TEST USER",
                 images: uploadedImageUrls,
-            });
+            }
+            console.log(data)
+
+            // Then create the post
+            const res = await api.forum.createPost(data);
 
             if (res.success) {
                 Alert.alert('Success', res.message);

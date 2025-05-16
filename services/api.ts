@@ -140,9 +140,9 @@ const api = {
       ): Promise<{success: boolean, message: string}> => {
       try {
         const postData = {
+          region_id: post.region_id,
           title: post.title,
           city_id: post.city_id,
-          region_id: post.region_id,
           content: post.content,
           rating: post.rating,
           date: new Date(post.date).toISOString(),
@@ -159,7 +159,14 @@ const api = {
       } catch (error) {
         if (axios.isAxiosError(error)) {
           if (error.response?.status === 404) {
+            const detail = error.response.data?.detail;
+            if (detail === "Region not found") {
+              return {success: false, message: 'Region not found'};
+            }
             return {success: false, message: 'City not found'};
+          }
+          if (error.response?.status === 500) {
+            return {success: false, message: 'Server error occurred'};
           }
           return {success: false, message: `Failed to create post: ${error.message}`};
         }
