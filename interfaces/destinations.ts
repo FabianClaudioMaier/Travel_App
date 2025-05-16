@@ -11,6 +11,7 @@ export interface TransportPrices {
 
 export interface City {
   region_id: string;
+  region_name: string;
   country: string;
   price: TransportPrices;
   IATA: string;

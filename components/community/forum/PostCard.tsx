@@ -26,7 +26,7 @@ const PostCard = ({ post }: PostCardProps) => {
       </View>
       <View className="flex-row items-center justify-between">
         <Text className="text-sm text-gray-500">{post.author}</Text>
-        <Text className="text-sm text-gray-500">{post.date}</Text>
+        <Text className="text-sm text-gray-500">{new Date(post.date).toLocaleDateString("de-DE")}</Text>
       </View>
 
       {(post.images && post.images.length > 0 || post.content) && (

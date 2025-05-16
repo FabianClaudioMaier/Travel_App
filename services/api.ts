@@ -1,4 +1,3 @@
-
 import { Cities, City, Region, Regions } from '@/interfaces/destinations';
 import { Posts } from '@/interfaces/forum';
 import { PlaneRoutes } from '@/interfaces/routes';
@@ -100,6 +99,71 @@ const api = {
           throw new Error(`Failed to fetch posts: ${error.message}`);
         }
         throw error;
+      }
+    },
+    uploadImages: async (images: string[]): Promise<{image_urls: string[]}> => {
+      try {
+        const formData = new FormData();
+        
+        images.forEach((imageUri, index) => {
+          formData.append('files', {
+            uri: imageUri,
+            type: 'image/*', 
+            name: `image${index}${imageUri.substring(imageUri.lastIndexOf('.'))}`
+          } as any);
+        });
+
+        const response = await axios.post<{image_urls: string[]}>(`${BASE_URL}/forum/upload_images`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+        return response.data;
+      } catch (error) {
+        if (axios.isAxiosError(error)) {
+          throw new Error(`Failed to upload images: ${error.message}`);
+        }
+        throw error;
+      }
+    },
+    createPost: async (
+      post: {
+          city_id: string,
+          title: string,
+          content: string,
+          rating: number,
+          date: string,
+          author: string,
+          images: string[]
+        }
+      ): Promise<{success: boolean, message: string}> => {
+      try {
+        const postData = {
+          title: post.title,
+          content: post.content,
+          rating: post.rating,
+          date: new Date(post.date).toISOString(),
+          author: post.author,
+          image_urls: post.images
+        };
+
+        const response = await axios.post<{success: boolean, message: string}>(
+          `${BASE_URL}/forum/posts`,
+          {
+            ...postData,
+            city_id: post.city_id
+          }
+        );
+        
+        return response.data;
+      } catch (error) {
+        if (axios.isAxiosError(error)) {
+          if (error.response?.status === 404) {
+            return {success: false, message: 'City not found'};
+          }
+          return {success: false, message: `Failed to create post: ${error.message}`};
+        }
+        return {success: false, message: 'Failed to create post'};
       }
     }
   }
