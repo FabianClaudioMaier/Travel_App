@@ -1,6 +1,6 @@
 import { Cities, City, Region, Regions } from '@/interfaces/destinations';
 import { Posts } from '@/interfaces/forum';
-import { PlaneRoutes } from '@/interfaces/routes';
+import { PlaneRoutes, BusRoutes, TrainRoutes } from '@/interfaces/routes';
 import axios from 'axios';
 
 const BASE_URL = 'https://hci-backend-541730464130.europe-central2.run.app';
@@ -74,10 +74,12 @@ const api = {
         }
     },
   routes: {
-    getFlights: async (): Promise<PlaneRoutes> => {
+    getFlights: async (origin: string, destination: string): Promise<PlaneRoutes> => {
       try {
         const response = await axios.get<PlaneRoutes>(`${BASE_URL}/routes/flights`, {
           params: {
+            origin,
+            destination
           }
         });
         return response.data;
@@ -88,6 +90,38 @@ const api = {
         throw error;
       }
     },
+    getBusRoutes: async (origin: string, destination: string): Promise<BusRoutes> => {
+      try {
+        const response = await axios.get<BusRoutes>(`${BASE_URL}/routes/buses`, {
+          params: {
+            origin,
+            destination
+          }
+        });
+        return response.data;
+      } catch (error) {
+        if (axios.isAxiosError(error)) {
+          throw new Error(`Failed to fetch bus routes: ${error.message}`);
+        }
+        throw error;
+      }
+    },
+    getTrains: async (origin: string, destination: string): Promise<TrainRoutes> => {
+      try {
+        const response = await axios.get<TrainRoutes>(`${BASE_URL}/routes/trains`, {
+          params: {
+            origin,
+            destination
+          }
+        });
+        return response.data;
+      } catch (error) {
+        if (axios.isAxiosError(error)) {
+          throw new Error(`Failed to fetch trains: ${error.message}`);
+        }
+        throw error;
+      }
+    }
   },
   forum: {
     getPostsByRegionId: async (regionId: string): Promise<Posts> => {
