@@ -2,7 +2,6 @@ import { Post } from '@/interfaces/forum';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useState } from 'react';
 import { Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Swiper from 'react-native-swiper';
 import ImageViewer from 'react-native-image-zoom-viewer';
 
 interface PostCardProps {
@@ -37,6 +36,9 @@ const PostCard = ({ post }: PostCardProps) => {
         </View>
         <View className="flex-row items-center justify-between">
           <Text className="text-sm text-gray-500">{post.author}</Text>
+          <Text className="text-sm text-gray-500">{post.city_name}</Text>
+        </View>
+        <View className="flex-row items-center justify-between">
           <Text className="text-sm text-gray-500">{new Date(post.date).toLocaleDateString("de-DE")}</Text>
         </View>
 
@@ -96,7 +98,7 @@ const PostCard = ({ post }: PostCardProps) => {
               {currentIndex} / {allSize}
             </Text>
           )}
-          saveToLocalByLongPress={false} // disable default save option
+          saveToLocalByLongPress={false}
         />
       </Modal>
     </>

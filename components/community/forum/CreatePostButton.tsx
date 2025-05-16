@@ -1,16 +1,18 @@
+import { Cities } from '@/interfaces/destinations';
 import api from '@/services/api';
 import { FontAwesome, FontAwesome5 } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, Image, Modal, Platform, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 interface CreatePostButtonProps {
-    city_id: string;
+    region_id: string;
     onPostCreated?: () => void;
 }
 
-const CreatePostButton = ({ city_id, onPostCreated }: CreatePostButtonProps) => {
+const CreatePostButton = ({ region_id, onPostCreated }: CreatePostButtonProps) => {
     const [modalVisible, setModalVisible] = useState(false)
     const [title, setTitle] = useState('')
     const [date, setDate] = useState(new Date())
@@ -20,6 +22,19 @@ const CreatePostButton = ({ city_id, onPostCreated }: CreatePostButtonProps) => 
     const [errors, setErrors] = useState<any>({})
 
     const [showPicker, setShowPicker] = useState(false)
+
+    const [cities, setCities] = useState<Cities>([])
+    const [selectedCity, setSelectedCity] = useState<string>('')
+
+    const fetchCities = async () => {
+        const cities = await api.destinations.getCitiesByRegion(region_id)
+        setCities(cities)
+    }
+
+    useEffect(() => {
+        fetchCities()
+    }, [])
+    
 
     const submitPost = async () => {
         const newErrors: any = {};
@@ -46,7 +61,8 @@ const CreatePostButton = ({ city_id, onPostCreated }: CreatePostButtonProps) => 
 
             // Then create the post
             const res = await api.forum.createPost({
-                city_id,
+                region_id,
+                city_id: selectedCity,
                 title,
                 content,
                 rating,
@@ -144,6 +160,19 @@ const CreatePostButton = ({ city_id, onPostCreated }: CreatePostButtonProps) => 
 
                                 />
                                 {errors.title && <Text className="text-red-500 text-sm mt-1">{errors.title}</Text>}
+                            </View>
+
+                            {/* City */}
+                            <View>
+                                <Text className="text-lg font-bold text-gray-600 mb-1">What cities did you visit?</Text>
+                                <Picker
+                                    selectedValue={selectedCity}
+                                    onValueChange={setSelectedCity}
+                                >
+                                    {cities.map((city) => (
+                                        <Picker.Item key={city.id} label={city.city_name} value={city.id} />
+                                    ))}
+                                </Picker>
                             </View>
 
                             {/* When did you visit? */}

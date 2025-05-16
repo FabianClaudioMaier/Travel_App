@@ -24,7 +24,7 @@ const CityForum = () => {
 
   const fetchPosts = async () => {
     try {
-      const posts = await api.forum.getPostsByCityId(city_id as string)
+      const posts = await api.forum.getPostsByRegionId(city?.region_id as string)
       posts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       setPosts(posts)
     } catch (error) {
@@ -53,7 +53,7 @@ const CityForum = () => {
         />
       </View>
 
-      <CreatePostButton city_id={city_id as string} onPostCreated={fetchPosts} />
+      <CreatePostButton region_id={city?.region_id as string} onPostCreated={fetchPosts} />
   </View>
 
 

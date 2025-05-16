@@ -90,9 +90,9 @@ const api = {
     },
   },
   forum: {
-    getPostsByCityId: async (cityId: string): Promise<Posts> => {
+    getPostsByRegionId: async (regionId: string): Promise<Posts> => {
       try {
-        const response = await axios.get<Posts>(`${BASE_URL}/forum/posts_by_city?city=${cityId}`);
+        const response = await axios.get<Posts>(`${BASE_URL}/forum/posts_by_region?region_id=${regionId}`);
         return response.data;
       } catch (error) {
         if (axios.isAxiosError(error)) {
@@ -129,6 +129,7 @@ const api = {
     createPost: async (
       post: {
           city_id: string,
+          region_id: string,
           title: string,
           content: string,
           rating: number,
@@ -140,6 +141,8 @@ const api = {
       try {
         const postData = {
           title: post.title,
+          city_id: post.city_id,
+          region_id: post.region_id,
           content: post.content,
           rating: post.rating,
           date: new Date(post.date).toISOString(),
@@ -149,10 +152,7 @@ const api = {
 
         const response = await axios.post<{success: boolean, message: string}>(
           `${BASE_URL}/forum/posts`,
-          {
-            ...postData,
-            city_id: post.city_id
-          }
+          postData
         );
         
         return response.data;
