@@ -1,30 +1,24 @@
-import { Cities, City, Region } from '@/interfaces/destinations'
+import CreatePostButton from '@/components/community/forum/CreatePostButton'
+import PostCard from '@/components/community/forum/PostCard'
+import { City } from '@/interfaces/destinations'
+import { Posts } from '@/interfaces/forum'
 import api from '@/services/api'
 import { useLocalSearchParams } from 'expo-router'
 import { useEffect, useState } from 'react'
-import { FlatList, Image, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import CityCard from '@/components/community/CityCard'
-import PostCard from '@/components/community/forum/PostCard'
-import { Posts } from '@/interfaces/forum'
-import { FontAwesome, Ionicons, Octicons } from '@expo/vector-icons'
-import CreatePostButton from '@/components/community/forum/CreatePostButton'
+import { FlatList, Text, View } from 'react-native'
 
 const CityForum = () => {
   const { city_id } = useLocalSearchParams()
 
   const [city, setCity] = useState<City>()
-  const [region, setRegion] = useState<Region>()
   const [posts, setPosts] = useState<Posts>([])
   
-  const fetchCityAndRegion = async () => {
+  const fetchCity = async () => {
     try {
       const cityData = await api.destinations.getCityById(city_id as string)
       setCity(cityData)
-      
-      const regionData = await api.destinations.getRegionById(cityData.region_id)
-      setRegion(regionData)
     } catch (error) {
-      console.error('Error fetching city and region:', error)
+      console.error('Error fetching city:', error)
     }
   }
 
@@ -39,7 +33,7 @@ const CityForum = () => {
   }
   
   useEffect(() => {
-    fetchCityAndRegion()
+    fetchCity()
     fetchPosts()
   }, [])
 
@@ -48,7 +42,7 @@ const CityForum = () => {
       
       <View className="bg-white p-4 shadow-sm">
         <Text className="text-2xl font-bold">{city?.city_name}, {city?.country}</Text>
-        <Text className="text-sm text-gray-500">{region?.name}</Text>
+        <Text className="text-sm text-gray-500">{city?.region_name}</Text>
       </View>
 
       <View className="flex-1">
@@ -59,7 +53,7 @@ const CityForum = () => {
         />
       </View>
 
-      <CreatePostButton city_id={city_id as string} />
+      <CreatePostButton city_id={city_id as string} onPostCreated={fetchPosts} />
   </View>
 
 

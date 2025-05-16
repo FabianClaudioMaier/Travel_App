@@ -1,17 +1,27 @@
-import { Alert, Image, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
-import React, { useState } from 'react'
-import { FontAwesome, FontAwesome5 } from '@expo/vector-icons'
+import api from '@/services/api';
+import { FontAwesome, FontAwesome5 } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
+import React, { useState } from 'react';
+import { Alert, Image, Modal, Platform, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-const CreatePostButton = ({ city_id }: { city_id: string }) => {
+interface CreatePostButtonProps {
+    city_id: string;
+    onPostCreated?: () => void;
+}
+
+const CreatePostButton = ({ city_id, onPostCreated }: CreatePostButtonProps) => {
     const [modalVisible, setModalVisible] = useState(false)
     const [title, setTitle] = useState('')
+    const [date, setDate] = useState(new Date())
     const [content, setContent] = useState('')
     const [rating, setRating] = useState(0)
     const [images, setImages] = useState<string[]>([])
     const [errors, setErrors] = useState<any>({})
 
-    const submitPost = () => {
+    const [showPicker, setShowPicker] = useState(false)
+
+    const submitPost = async () => {
         const newErrors: any = {};
 
         if (!title.trim()) {
@@ -26,18 +36,35 @@ const CreatePostButton = ({ city_id }: { city_id: string }) => {
 
         if (Object.keys(newErrors).length > 0) return;
 
-        const post = {
-            author: "TEST USER",
-            city_id,
-            title,
-            content,
-            rating,
-            images,
-        };
+        try {
+            // First upload any images
+            let uploadedImageUrls: string[] = [];
+            if (images.length > 0) {
+                const imageUploadResult = await api.forum.uploadImages(images);
+                uploadedImageUrls = imageUploadResult.image_urls;
+            }
 
-        console.log(post);
+            // Then create the post
+            const res = await api.forum.createPost({
+                city_id,
+                title,
+                content,
+                rating,
+                date: date.toISOString(),
+                author: "TEST USER",
+                images: uploadedImageUrls,
+            });
 
-        cleanForm();
+            if (res.success) {
+                Alert.alert('Success', res.message);
+                cleanForm();
+                onPostCreated?.();
+            } else {
+                Alert.alert('Error', res.message);
+            }
+        } catch (error) {
+            Alert.alert('Error', 'Failed to create post. Please try again.');
+        }
     };
 
     const cleanForm = () => {
@@ -114,9 +141,54 @@ const CreatePostButton = ({ city_id }: { city_id: string }) => {
                                     placeholderTextColor="#666"
                                     value={title}
                                     onChangeText={setTitle}
-                                    
+
                                 />
                                 {errors.title && <Text className="text-red-500 text-sm mt-1">{errors.title}</Text>}
+                            </View>
+
+                            {/* When did you visit? */}
+                            <View className="flex-row items-center justify-between">
+                                <Text className="text-lg font-bold text-gray-600">When did you visit?</Text>
+
+                                {Platform.OS === 'ios' ? (
+                                    <DateTimePicker
+                                        value={date}
+                                        mode="date"
+                                        display="default"
+                                        onChange={(event, selectedDate) => {
+                                            if (selectedDate) {
+                                                setDate(selectedDate)
+                                                setShowPicker(false)
+                                            }
+                                        }}
+                                    />
+                                ) : (
+                                    <Pressable
+                                        className="border border-gray-300 rounded-lg p-2"
+                                        onPress={() => {
+                                            setShowPicker(true)
+                                            setDate(new Date())
+                                        }}
+                                    >
+                                        <Text className="text-base text-gray-700">
+                                            {date.toLocaleDateString()}
+                                        </Text>
+                                    </Pressable>
+                                )}
+
+                                {showPicker && (
+                                    <DateTimePicker
+                                        value={date}
+                                        mode="date"
+                                        display="default"
+                                        onChange={(event, selectedDate) => {
+                                            if (selectedDate) {
+                                                setDate(selectedDate)
+                                                setShowPicker(false)
+                                            }
+                                        }}
+                                    />
+                                )}
                             </View>
 
                             {/* How was your experience? */}
