@@ -30,16 +30,17 @@ interface Leg {
 
 interface Params {
   origin: string;
+  destination?: string;
   stops?: string;
+  stopsAirport?: string;
   modes?: string;
   originAirport?: string;
-  stopsAirport?: string;
   price?: string;
   start_date?: string;
   end_date?: string;
 }
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 // Polyline decoder
 function decodePolyline(encoded: string): LatLng[] {
@@ -91,11 +92,13 @@ const fetchLegMode = async (
   from: string,
   to: string
 ): Promise<RouteInfo[]> => {
+  console.log(`→ Requesting ${type} from="${from}" to="${to}"`);
   try {
     const raw =
       type === 'buses'
         ? await api.routes.getBusRoutes(from, to)
         : await api.routes.getTrains(from, to);
+    console.log(`← ${type} raw response:`, raw);
     const arr: TransitRoute[] = unwrapArray<TransitRoute>(raw);
     return arr.map(r => ({
       duration: toSeconds(r.duration),
@@ -103,8 +106,8 @@ const fetchLegMode = async (
       encodedPolyline: r.polyline.encodedPolyline,
       raw: r,
     }));
-  } catch (e) {
-    console.error(`Error fetching ${type}:`, e);
+  } catch (e: any) {
+    console.error(`✕ Error fetching ${type}`, e.response?.status, e.response?.data ?? e.message);
     return [];
   }
 };
@@ -114,8 +117,10 @@ const fetchFlights = async (
   fromCode: string,
   toCode: string
 ): Promise<RouteInfo[]> => {
+  console.log(`→ Requesting flights from="${fromCode}" to="${toCode}"`);
   try {
     const raw = await api.routes.getFlights(fromCode, toCode);
+    console.log('← flights raw response:', raw);
     const flights: Flight[] = unwrapArray<Flight>(raw);
     return flights.map(f => {
       const flightSecs =
@@ -129,8 +134,8 @@ const fetchFlights = async (
         raw: f,
       };
     });
-  } catch (e) {
-    console.error('Error fetching flights:', e);
+  } catch (e: any) {
+    console.error('✕ Error fetching flights', e.response?.status, e.response?.data ?? e.message);
     return [];
   }
 };
@@ -142,6 +147,7 @@ async function getBestLeg(
   toAirport: string,
   modes: string[]
 ): Promise<Leg | null> {
+  console.log(`=== getBestLeg ${fromName}→${toName} airports ${fromAirport}→${toAirport} modes=`, modes);
   const candidates: RouteInfo[] = [];
   if (modes.includes('bus')) {
     candidates.push(...(await fetchLegMode('buses', fromName, toName)));
@@ -152,6 +158,7 @@ async function getBestLeg(
   if (modes.includes('flight') && fromAirport && toAirport) {
     candidates.push(...(await fetchFlights(fromAirport, toAirport)));
   }
+  console.log(`→ candidates found:`, candidates.length);
   if (!candidates.length) return null;
   const best = candidates.reduce((a, b) => (a.duration < b.duration ? a : b));
   let label: 'Bus' | 'Train' | 'Flight' = 'Bus';
@@ -186,17 +193,21 @@ const LegCard: React.FC<LegCardProps> = ({ leg, originCity, destCity, date }) =>
   const { label, route } = leg;
   const hours = Math.floor(route.duration / 3600);
   const mins = Math.floor((route.duration % 3600) / 60);
-  // Zufallsstunde zwischen 0 und 23
-  const hoursStart: number = Math.floor(Math.random() * 24);
-  // Zufallsminute zwischen 0 und 59
-  const minsStart: number = Math.floor(Math.random() * 60);
-  const timeStart = (hoursStart < 10 ? '0' : '') + hoursStart + ":" + (minsStart < 10 ? '0' : '') + minsStart;
-  const overflowHour = (minsStart + mins) > 60 ? 1 : 0;
-  const timeEnd = (((hoursStart+hours+overflowHour) % 24) < 10 ? '0' : '') + ((hoursStart+hours+overflowHour) % 24) + ":" + (((minsStart + mins) % 60) < 10 ? '0' : '') + ((minsStart + mins) % 60);
+  const hoursStart = Math.floor(Math.random() * 24);
+  const minsStart = Math.floor(Math.random() * 60);
+  const timeStart =
+    (hoursStart < 10 ? '0' : '') + hoursStart + ':' + (minsStart < 10 ? '0' : '') + minsStart;
+  const overflowHour = minsStart + mins > 59 ? 1 : 0;
+  const timeEnd =
+    ((hoursStart + hours + overflowHour) % 24 < 10 ? '0' : '') +
+    ((hoursStart + hours + overflowHour) % 24) +
+    ':' +
+    (((minsStart + mins) % 60) < 10 ? '0' : '') +
+    ((minsStart + mins) % 60);
 
-  // Flight-specific data
   const airline = route.raw?.path?.[0]?.airline ?? '';
   const price = route.raw?.price ? `€ ${route.raw.price}` : '';
+
   return (
     <View style={styles.cardContainer}>
       <View style={styles.headerRow}>
@@ -220,13 +231,21 @@ const LegCard: React.FC<LegCardProps> = ({ leg, originCity, destCity, date }) =>
       <View style={styles.divider} />
       <View style={styles.timelineRow}>
         <View style={styles.timeBlock}>
-          <Text style={styles.timeText}>{route.raw?.path?.[0]?.departureTime ?? timeStart}</Text>
+          <Text style={styles.timeText}>
+            {route.raw?.path?.[0]?.departureTime ?? timeStart}
+          </Text>
         </View>
         <Icon name="arrow-forward-outline" size={16} />
         <Text style={styles.durationText}>{`${hours}h ${mins}m`}</Text>
-        <Icon name="arrow-forward-outline" size={16} style={{ transform: [{ rotate: '180deg' }] }} />
+        <Icon
+          name="arrow-forward-outline"
+          size={16}
+          style={{ transform: [{ rotate: '180deg' }] }}
+        />
         <View style={styles.timeBlock}>
-          <Text style={styles.timeText}>{route.raw?.path?.slice(-1)[0]?.arrivalTime ?? timeEnd}</Text>
+          <Text style={styles.timeText}>
+            {route.raw?.path?.slice(-1)[0]?.arrivalTime ?? timeEnd}
+          </Text>
         </View>
       </View>
       {date && <Text style={styles.dateText}>{date}</Text>}
@@ -238,39 +257,44 @@ export default function ResultScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<Params>();
 
-  // Params
+  // Log all incoming params
+  console.log('🏁 ResultScreen params:', params);
+
+  // Parse params
   const origin = params.origin!;
-  const destination = params.origin!;
+  const destination = params.destination ?? origin;
   const originAirport = params.originAirport ?? '';
   const destinationAirport = params.originAirport ?? '';
 
   const rawStops = params.stops;
-  const stops: string[] = rawStops
-    ? Array.isArray(rawStops)
-      ? rawStops
-      : rawStops.split(',')
-    : [];
+  const stops: string[] = rawStops ? rawStops.split(',') : [];
+
   const rawStopsAirport = params.stopsAirport;
-  const stopsAirport: string[] = rawStopsAirport
-    ? Array.isArray(rawStopsAirport)
-      ? rawStopsAirport
-      : rawStopsAirport.split(',')
-    : [];
+  const stopsAirport: string[] = rawStopsAirport ? rawStopsAirport.split(',') : [];
 
   const priceLimit = params.price ? Number(params.price) : Infinity;
-  const modes = params.modes?.split(',') ?? ['transit'];
+  const modes = params.modes?.split(',') ?? [];
   const rawStart = params.start_date;
   const rawEnd = params.end_date;
   const startDate = rawStart ? new Date(rawStart) : undefined;
   const endDate = rawEnd ? new Date(rawEnd) : undefined;
 
-  const [finalLegs, setFinalLegs] = useState<(LegCardProps & { date?: string })[]>([]);
-  const [cards, setCards] = useState<LegCardProps[]>([]);
+  const [finalLegs, setFinalLegs] = useState<(Leg & { date?: string })[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
-      // Cache
+      console.log('▶️ Computing best route for:', {
+        origin,
+        stops,
+        destination,
+        modes,
+        priceLimit,
+        rawStart,
+        rawEnd,
+      });
+
+      // Cache lookup
       let found = false;
       try {
         const json = await AsyncStorage.getItem('myTravels');
@@ -284,17 +308,21 @@ export default function ResultScreen() {
           t.end_date === rawEnd
         );
         if (match) {
+          console.log('← Found cached route', match);
           setFinalLegs(match.legs);
           found = true;
         }
       } catch (e) {
         console.warn('Cache load failed', e);
       }
+
       if (!found) {
-        // Permutations
         const perms = permute(stops);
+        console.log(`→ Permutations (${perms.length}):`, perms);
         let bestOverall: { legs: (Leg | null)[]; time: number; price: number } | null = null;
+
         for (const perm of perms) {
+          console.log('→ Trying sequence:', [origin, ...perm, destination]);
           const seqCities = [origin, ...perm, destination];
           const seqAirports = [
             originAirport,
@@ -304,13 +332,20 @@ export default function ResultScreen() {
           let sumTime = 0;
           let sumPrice = 0;
           const legs: (Leg | null)[] = [];
+
           for (let i = 0; i < seqCities.length - 1; i++) {
             const leg = await getBestLeg(
-              seqCities[i], seqCities[i + 1],
-              seqAirports[i], seqAirports[i + 1],
+              seqCities[i],
+              seqCities[i + 1],
+              seqAirports[i],
+              seqAirports[i + 1],
               modes
             );
-            if (!leg) { sumTime = Infinity; break; }
+            console.log('  ↳ leg result:', leg);
+            if (!leg) {
+              sumTime = Infinity;
+              break;
+            }
             sumTime += leg.route.duration;
             sumPrice += leg.route.distanceMeters * 0.0 + (leg.label === 'Flight' ? leg.route.raw.price : 0);
             legs.push(leg);
@@ -324,115 +359,122 @@ export default function ResultScreen() {
             bestOverall = { legs, time: sumTime, price: sumPrice };
           }
         }
+
         if (bestOverall) {
-            setFinalLegs(bestOverall.legs);
+          console.log('← Best overall:', bestOverall);
+          setFinalLegs(bestOverall.legs as Leg[]);
+        } else {
+          console.log('← No valid route found');
+        }
       }
-    }
+
       setLoading(false);
     })();
   }, []);
 
   useEffect(() => {
-    // Wenn finalLegs leer, nix tun
-    if (finalLegs.length === 0) return;
-
-    // Wir brauchen dieselben Sequenzen, die du schon im Loader berechnet hast:
-    const seqCities   = [origin, ...stops, destination];
-    const seqAirports = [
-      originAirport,
-      ...stopsAirport,
-      destinationAirport,
-    ];
-
-    // Hier bauen wir jetzt die Daten fürs Rendering:
-    const cardData: LegCardProps[] = finalLegs
-      .map((leg, i) => {
-        if (!leg) return null;
-        return {
-          label:      leg.label,
-          route:      leg.route,
-          originCity: seqCities[i],
-          destCity:   seqCities[i + 1],
-          date:       startDate?.toLocaleDateString(),
-        };
-      })
-      .filter((c): c is LegCardProps => c !== null);
-
-    // Und genau hier wird cards gefüllt:
-    setCards(cardData);
+    // nothing—cards are built inline below
   }, [finalLegs]);
-
-
-  const onSave = async () => {
-    if (!finalLegs.length) {
-      Alert.alert('Fehler', 'Keine Route zum Speichern vorhanden.');
-      return;
-    }
-    const record = { id: Date.now(), origin, stops, destination, modes, start_date: rawStart, end_date: rawEnd, legs: finalLegs };
-    try {
-      const json = await AsyncStorage.getItem('myTravels');
-      const arr = json ? JSON.parse(json) : [];
-      arr.push(record);
-      await AsyncStorage.setItem('myTravels', JSON.stringify(arr));
-      Alert.alert('Gespeichert', 'Deine Route wurde abgelegt.');
-    } catch {
-      Alert.alert('Fehler', 'Speichern fehlgeschlagen.');
-    }
-  };
 
   if (loading) return <ActivityIndicator style={styles.loader} size="large" />;
 
-  // Gesamte Route & Marker
-  const allCoords: LatLng[] = finalLegs.filter(Boolean).flatMap((leg) => decodePolyline((leg as Leg).route.encodedPolyline));
-  const markers = allCoords.length > 0 ? [
-    { coordinate: allCoords[0], label: 'Origin' },
-    ...finalLegs.filter(Boolean).slice(0, -1).map((leg, i) => {
-      const pts = decodePolyline((leg as Leg).route.encodedPolyline);
-      return { coordinate: pts[pts.length - 1], label: `Stop ${i + 1}` };
-    }),
-    { coordinate: allCoords[allCoords.length - 1], label: 'Destination' },
-  ] : [];
+  // build markers & polyline
+  const allCoords: LatLng[] = finalLegs
+    .filter(Boolean)
+    .flatMap(leg => decodePolyline(leg.route.encodedPolyline));
 
-  const lats = allCoords.map(c => c.latitude);
-  const lngs = allCoords.map(c => c.longitude);
-  const midLat = (Math.min(...lats) + Math.max(...lats)) / 2;
-  const midLng = (Math.min(...lngs) + Math.max(...lngs)) / 2;
-  const deltaLat = (Math.max(...lats) - Math.min(...lats)) * 1.2 || 0.05;
-  const deltaLng = (Math.max(...lngs) - Math.min(...lngs)) * 1.2 || 0.05;
+  const markers = allCoords.length
+    ? [
+        { coordinate: allCoords[0], label: 'Origin' },
+        ...finalLegs.filter(Boolean).slice(0, -1).map((leg, i) => {
+          const pts = decodePolyline(leg.route.encodedPolyline);
+          return { coordinate: pts[pts.length - 1], label: `Stop ${i + 1}` };
+        }),
+        { coordinate: allCoords[allCoords.length - 1], label: 'Destination' },
+      ]
+    : [];
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.header}>Routeübersicht</Text>
-      {startDate && endDate && (
-        <View style={styles.summaryContainer}>
-          <Text>Reisedaten: {startDate.toLocaleDateString()} – {endDate.toLocaleDateString()}</Text>
-        </View>
-      )}
-      {allCoords.length > 0 && (
-        <MapView
-          style={styles.overallMap}
-          initialRegion={{ latitude: midLat, longitude: midLng, latitudeDelta: deltaLat, longitudeDelta: deltaLng }}
-        >
-          <Polyline coordinates={allCoords} strokeWidth={4} />
-          {markers.map((m, i) => (
-            <Marker key={i} coordinate={m.coordinate} />
+      <View styles={styles.container}>
+        <ScrollView>
+          <Text style={styles.header}>Routeübersicht</Text>
+          {startDate && endDate && (
+            <View style={styles.summaryContainer}>
+              <Text>
+                Reisedaten: {startDate.toLocaleDateString()} –{' '}
+                {endDate.toLocaleDateString()}
+              </Text>
+            </View>
+          )}
+          {allCoords.length > 0 && (
+            <MapView
+              style={styles.overallMap}
+              initialRegion={{
+                latitude: (Math.min(...allCoords.map(c => c.latitude)) +
+                           Math.max(...allCoords.map(c => c.latitude))) /
+                          2,
+                longitude: (Math.min(...allCoords.map(c => c.longitude)) +
+                            Math.max(...allCoords.map(c => c.longitude))) /
+                           2,
+                latitudeDelta:
+                  (Math.max(...allCoords.map(c => c.latitude)) -
+                   Math.min(...allCoords.map(c => c.latitude))) *
+                    1.2 ||
+                  0.05,
+                longitudeDelta:
+                  (Math.max(...allCoords.map(c => c.longitude)) -
+                   Math.min(...allCoords.map(c => c.longitude))) *
+                    1.2 ||
+                  0.05,
+              }}
+            >
+              <Polyline coordinates={allCoords} strokeWidth={4} />
+              {markers.map((m, i) => (
+                <Marker key={i} coordinate={m.coordinate} />
+              ))}
+            </MapView>
+          )}
+          {finalLegs.map((leg, idx) => (
+            <LegCard
+              key={idx}
+              leg={leg}
+              originCity={
+                idx === 0 ? origin : finalLegs[idx - 1]!.route.raw.city_name
+              }
+              destCity={idx === finalLegs.length - 1 ? destination : finalLegs[idx]!.route.raw.city_name}
+              date={startDate?.toLocaleDateString()}
+            />
           ))}
-        </MapView>
-      )}
-      {cards.map((c, idx) => (
-        <LegCard
-          key={idx}
-          leg={{ label: c.label, route: c.route }}
-          originCity={c.originCity}
-          destCity={c.destCity}
-          date={c.date}
-        />
-      ))}
-      {finalLegs.every(l => l === null) && <Text style={styles.noRoutes}>Keine Routen verfügbar</Text>}
-      <TouchableOpacity style={styles.saveButton} onPress={onSave}>
-        <Icon name="save-outline" size={24} color="#fff" />
-      </TouchableOpacity>
-    </ScrollView>
+          {finalLegs.length === 0 && !loading && (
+            <Text style={styles.noRoutes}>Keine Routen verfügbar</Text>
+          )}
+
+        </ScrollView>
+        <TouchableOpacity style={styles.saveButton} onPress={async () => {
+          const record = {
+              id: Date.now(),
+              origin,
+              stops,
+              destination,
+              modes,
+              start_date: rawStart,
+              end_date: rawEnd,
+              legs: finalLegs,
+            };
+            try {
+              const json = await AsyncStorage.getItem('myTravels');
+              const arr = json ? JSON.parse(json) : [];
+              arr.push(record);
+              await AsyncStorage.setItem('myTravels', JSON.stringify(arr));
+              console.log('✓ Route saved');
+            } catch (e) {
+              console.error('✕ Save failed', e);
+            }
+          }}>
+            <Icon name="save-outline" size={24} color="#fff" />
+            <Text style={styles.saveText}> Save </Text>
+        </TouchableOpacity>
+    </View>
   );
 }
 
@@ -441,9 +483,14 @@ const styles = StyleSheet.create({
   loader: { flex: 1, justifyContent: 'center' },
   header: { fontSize: 20, fontWeight: 'bold', marginBottom: 10 },
   summaryContainer: { marginBottom: 10 },
-  overallMap: { height: width*0.8, borderRadius: 10, marginBottom: 10,     borderStyle: "solid",
-                                                                          borderColor: "#000",
-                                                                          borderWidth: 2, },
+  overallMap: {
+    height: width * 0.8,
+    borderRadius: 10,
+    marginBottom: 10,
+    borderStyle: 'solid',
+    borderColor: '#000',
+    borderWidth: 2,
+  },
   cardContainer: {
     backgroundColor: '#fff',
     borderRadius: 8,
@@ -459,8 +506,26 @@ const styles = StyleSheet.create({
   divider: { height: 1, backgroundColor: '#e6e6e6', marginVertical: 8 },
   timelineRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   timeBlock: { alignItems: 'center' },
-  locationCode: { fontSize: 14, fontWeight: '700', color: '#111827' },
   timeText: { fontSize: 12, color: '#6b7280' },
   durationText: { fontSize: 12, color: '#6b7280' },
   dateText: { position: 'absolute', top: 12, right: 12, fontSize: 12, color: '#4b5563' },
+  noRoutes: { textAlign: 'center', marginTop: 20, fontSize: 16 },
+  saveButton: {
+     position: 'absolute',
+     bottom: 20,
+     right: 20,
+     flexDirection: 'row',
+     alignItems: 'center',
+     backgroundColor: '#000',
+     paddingHorizontal: 16,
+     paddingVertical: 12,
+     borderRadius: 28,
+     elevation: 4,
+  },
+  saveText: {
+     color: '#fff',
+     fontSize: 16,
+     fontWeight: '500',
+     marginLeft: 8,
+  },
 });

@@ -10,6 +10,7 @@ import {
   View
 } from 'react-native';
 import StepIndicator from 'react-native-step-indicator';
+import * as Location from 'expo-location';
 
 // API Client
 import { City, Region } from '@/interfaces/destinations';
@@ -70,8 +71,13 @@ export default function TripConfigurator() {
   const [allCities, setAllCities] = useState<City[]>([]);
   const [filteredCities, setFilteredCities] = useState<City[]>([]);
   const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
-  const [selectedCity, setSelectedCity] = useState<City | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+
+  const [startCity, setStartCity] = useState<string>('Vienna');
+  const [originAirport, setOriginAirport] = useState<string>('VIE');
+
+  const [queryStop, setQueryStop] = useState('');
+  const [selectedStop, setSelectedStop] = useState<City | null>(null);
+  const [stops, setStops] = useState<City[]>([]);
 
   // Steps 2-5
   const [startDate, setStartDate] = useState(new Date());
@@ -96,64 +102,85 @@ export default function TripConfigurator() {
     setFilteredCities(cities);
   };
 
-  // Update filtered cities when region or search query changes
+    // Hilfsfunktion Airport finden (Interface: City.IATA)
+  const findAirport = (cityName: string) => {
+    const found = allCities.find(c => c.city_name === cityName);
+    return found?.IATA || 'VIE';
+  };
+
+// **Location-Hook**: jetzt mit Imports und funktionierend
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Erlaubnis benötigt', 'Standortzugriff ist erforderlich.');
+        setStartCity('Vienna');
+        setOriginAirport(findAirport('Vienna'));
+        return;
+      }
+      try {
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest });
+        const rev = await Location.reverseGeocodeAsync(loc.coords);
+        const city = rev[0]?.city || 'Vienna';
+        setStartCity(city);
+        setOriginAirport(findAirport(city));
+      } catch {
+        setStartCity('Vienna');
+        setOriginAirport(findAirport('Vienna'));
+      }
+    })();
+  }, [allCities]);
+
+  // update cities filter
   useEffect(() => {
     let filtered = allCities;
-
-    // Filter by region if one is selected
-    if (selectedRegionId) {
-      filtered = filtered.filter(city => city.region_id === selectedRegionId);
-    }
-
-    // Filter by search query
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(city =>
-        city.city_name.toLowerCase().includes(query) || city.country.toLowerCase().includes(query)
+    if (selectedRegionId) filtered = filtered.filter(c => c.region_id === selectedRegionId);
+    if (queryStop) {
+      const q = queryStop.toLowerCase();
+      filtered = filtered.filter(
+        c => c.city_name.toLowerCase().includes(q) || c.country.toLowerCase().includes(q)
       );
     }
-
     setFilteredCities(filtered);
-  }, [selectedRegionId, searchQuery, allCities]);
+  }, [selectedRegionId, queryStop, allCities]);
 
+  // initial fetch
   useEffect(() => {
     fetchRegions();
     fetchAllCities();
   }, []);
 
-  // Datum-Picker Handlers
-  const onChangeStart = (_event: any, selectedDate?: Date) => {
-    if (selectedDate) {
-      setStartDate(selectedDate);
-      // If end date is before new start date, update it
-      if (endDate < selectedDate) {
-        setEndDate(selectedDate);
-      }
+  // Add / Remove Stops
+  const addStop = () => {
+    if (selectedStop && !stops.some(s => s.id === selectedStop.id) && stops.length < 5) {
+      setStops(prev => [...prev, selectedStop]);
+      setQueryStop('');
+      setSelectedStop(null);
+    }
+  };
+  const removeStop = (id: string) => setStops(prev => prev.filter(s => s.id !== id));
+
+  // Date pickers…
+  const onChangeStart = (_: any, date?: Date) => {
+    if (date) {
+      setStartDate(date);
+      if (endDate < date) setEndDate(date);
     }
     setShowStartPicker(false);
   };
-
-  const onChangeEnd = (_event: any, selectedDate?: Date) => {
-    if (selectedDate) {
-      setEndDate(selectedDate);
-    }
+  const onChangeEnd = (_: any, date?: Date) => {
+    if (date) setEndDate(date);
     setShowEndPicker(false);
   };
 
-  // Transport-Modi umschalten
-  const toggleMode = (modeKey: string) => {
+  const toggleMode = (m: string) =>
     setSelectedModes(prev =>
-      prev.includes(modeKey)
-        ? prev.filter(m => m !== modeKey)   // entfernen, wenn schon drin
-        : [...prev, modeKey]                // hinzufügen, wenn nicht drin
+      prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]
     );
-  };
 
-
-  // Navigation logic
   const canNext = () => {
     switch (step) {
-      case 0: return !!selectedCity;
+      case 0: return !!selectedRegionId && stops.length > 0;
       case 1: return numberOfAdults + numberOfChildren > 0;
       case 2: return !!startDate && !!endDate;
       case 3: return maxPrice > 0;
@@ -163,22 +190,24 @@ export default function TripConfigurator() {
   };
 
   const onNext = () => {
-    if (step < labels.length - 1) setStep(step + 1);
-    else {
-      router.push({
-        pathname: '/result',
-        params: {
-          regionId: selectedRegionId,
-          regionName: selectedCity?.city_name,
-          cities: [selectedCity?.city_name ?? ''],
-          citiesAirport: [selectedCity?.IATA ?? ''],
-          modes: selectedModes,
-          dates: [startDate.toISOString(), endDate.toISOString()],
-          price: maxPrice,
-          people: [numberOfAdults, numberOfChildren]
-        }
-      });
-    }
+    if (step < labels.length - 1) return setStep(step + 1);
+
+    // Hier stellen wir sicher, dass origin gesetzt ist:
+    router.push({
+      pathname: '/result',
+      params: {
+        regionId: selectedRegionId!,
+        origin: startCity,
+        destination: startCity,
+        originAirport,
+        stops: stops.map(s => s.city_name).join(','),
+        stopsAirport: stops.map(s => s.IATA).join(','),
+        modes: selectedModes.join(','),
+        start_date: startDate.toISOString(),
+        end_date: endDate.toISOString(),
+        price: maxPrice.toString(),
+      }
+    });
   };
 
   // Render step content
@@ -187,16 +216,16 @@ export default function TripConfigurator() {
       case 0:
         return (
           <>
-            <Text className="text-2xl font-bold text-center mb-2">Destination</Text>
+            <Text className="text-2xl font-bold mb-2">Destination</Text>
             <Text className="text-base text-gray-500">Select a region</Text>
             <View className="border border-gray-200 rounded-md">
               <Picker
                 selectedValue={selectedRegionId}
                 onValueChange={(value) => {
                   setSelectedRegionId(value);
-                  setSelectedCity(null);
+                  setStops([]);         // stops zurücksetzen
+                  setQueryStop('');
                   setShowDropdown(false);
-                  setSearchQuery('');
                 }}
               >
                 <Picker.Item key="all" label="All Regions" value={null} />
@@ -204,41 +233,75 @@ export default function TripConfigurator() {
                   <Picker.Item key={r.id} label={r.name} value={r.id} />
                 ))}
               </Picker>
-            </View >
-            <Text className="text-base text-gray-500 mt-4">Select a city</Text>
-            <TextInput
-              className="text-base border border-gray-200 rounded-md p-4"
-              placeholder="Choose a city..."
-              value={searchQuery}
-              onChangeText={text => {
-                setSearchQuery(text);
-                setSelectedCity(null);
-                setShowDropdown(true);
-              }}
-              onFocus={() => setShowDropdown(true)}
-            />
-            {
-              showDropdown && (
-                <View className="absolute top-full left-0 right-0 z-[1000] bg-white border border-gray-200 rounded shadow-lg">
-                  <ScrollView style={{ maxHeight: 240 }}>
-                    {filteredCities.map(city => (
-                      <TouchableOpacity
-                        key={city.id}
-                        onPress={() => {
-                          setSearchQuery(`${city.city_name}, ${city.country}`);
-                          setSelectedCity(city);
-                          setSelectedRegionId(city.region_id);
-                          setShowDropdown(false);
-                        }}
-                        className="border-b border-gray-200 p-4"
-                      >
-                        <Text className="text-base text-gray-500">{city.city_name}, {city.country}</Text>
+            </View>
+
+            {selectedRegionId && (
+              <>
+                <Text className="mt-4 text-base text-gray-500">Select Stops</Text>
+
+                {/* angezeigte Stops */}
+                <View style={styles.stopsContainer}>
+                  {stops.map(s => (
+                    <View key={s.id} style={styles.stopItem}>
+                      <Text style={styles.stopText}>{s.city_name}</Text>
+                      <TouchableOpacity onPress={() => removeStop(s.id)}>
+                        <Text style={styles.removeText}>✕</Text>
                       </TouchableOpacity>
-                    ))}
-                  </ScrollView>
+                    </View>
+                  ))}
                 </View>
-              )
-            }
+
+                {/* Eingabe + Add-Button */}
+                <View style={[styles.row, styles.inputTextContainer]}>
+                  <TextInput
+                    style={[styles.inputText, { flex: 1 }]}
+                    placeholder="Click here..."
+                    value={queryStop}
+                    onChangeText={text => {
+                      setQueryStop(text);
+                      setSelectedStop(null);
+                      setShowDropdown(true);
+                    }}
+                    onFocus={() => setShowDropdown(true)}
+                  />
+                  <Pressable
+                    style={[
+                      styles.addButton,
+                      (!selectedStop ||
+                        stops.some(s => s.id === selectedStop.id)) &&
+                        styles.buttonDisabled
+                    ]}
+                    onPress={addStop}
+                    disabled={!selectedStop || stops.some(s => s.id === selectedStop.id)}
+                  >
+                    <Text style={styles.addText}>Add</Text>
+                  </Pressable>
+                </View>
+
+                {/* Dropdown mit Vorschlägen */}
+                {showDropdown && filteredCities.length > 0 && (
+                  <View className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded shadow-lg z-50">
+                    <ScrollView style={{ maxHeight: 150 }}>
+                      {filteredCities.map(city => (
+                        <TouchableOpacity
+                          key={city.id}
+                          onPress={() => {
+                            setQueryStop(city.city_name);
+                            setSelectedStop(city);
+                            setShowDropdown(false);
+                          }}
+                          className="border-b border-gray-200 p-4"
+                        >
+                          <Text className="text-base text-gray-500">
+                            {city.city_name}, {city.country}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+              </>
+            )}
           </>
         );
       case 1:
@@ -287,11 +350,11 @@ export default function TripConfigurator() {
                     <FontAwesome
                       name={m.key === 'bus' ? 'bus' : m.key === 'train' ? 'train' : 'plane'}
                       size={20}
-                      color={selectedModes.includes(m.key) ? 'white' : 'black'}
+                      color={selectedModes.includes(m.key) ? 'black' : 'grey'}
                     />
                     <Text
                       className="text-base font-bold"
-                      style={{ color: selectedModes.includes(m.key) ? 'white' : 'black' }}
+                      style={{ color: selectedModes.includes(m.key) ? 'black' : 'grey' }}
                     >
                       {m.label}
                     </Text>
@@ -306,7 +369,7 @@ export default function TripConfigurator() {
           <Summary
             numberOfAdults={numberOfAdults}
             numberOfChildren={numberOfChildren}
-            cities={[selectedCity?.city_name ?? '']}
+            cities={stops.map(s => s.city_name)}
             maxPrice={maxPrice}
             modes={selectedModes}
             startDate={startDate}
@@ -319,18 +382,35 @@ export default function TripConfigurator() {
   };
 
   return (
-    <View className="bg-white p-4 rounded-lg w-full h-[60%]">
-      <StepIndicator customStyles={stepIndicatorStyles} currentPosition={step} labels={labels} stepCount={labels.length} />
-
+    <View className="bg-white p-4 rounded-lg w-full h-[70%]">
+      <StepIndicator
+        customStyles={stepIndicatorStyles}
+        currentPosition={step}
+        labels={labels}
+        stepCount={labels.length}
+      />
       <View style={styles.stepsContainer}>{renderContent()}</View>
-
       <View className="flex-row justify-between mt-auto">
-        {step > 0 &&
-          <Pressable style={styles.navButton} onPress={() => setStep(step - 1)}>
+        {step > 0 && (
+          <Pressable
+            style={styles.navButton}
+            onPress={() => setStep(step - 1)}
+          >
             <Text style={styles.buttonText}>Back</Text>
-          </Pressable>}
-        <Pressable style={[styles.navButton, !canNext() && styles.buttonDisabled]} onPress={onNext} disabled={!canNext()}>
-          <Text style={styles.buttonText}>{step === labels.length - 1 ? 'Show Route' : step === 0 ? 'Start' : 'Next'}</Text>
+          </Pressable>
+        )}
+        <Pressable
+          style={[styles.navButton, !canNext() && styles.buttonDisabled]}
+          onPress={onNext}
+          disabled={!canNext()}
+        >
+          <Text style={styles.buttonText}>
+            {step === labels.length - 1
+              ? 'Show Route'
+              : step === 0
+              ? 'Start'
+              : 'Next'}
+          </Text>
         </Pressable>
       </View>
     </View>
@@ -338,17 +418,22 @@ export default function TripConfigurator() {
 }
 
 const styles = StyleSheet.create({
-
-
-  navButton: { backgroundColor: '#aaa', padding: 14, borderRadius: 6, alignItems: 'center', flex: 1, marginHorizontal: 4 },
+  navButton: {
+    backgroundColor: '#aaa',
+    padding: 14,
+    borderRadius: 6,
+    alignItems: 'center',
+    flex: 1,
+    marginHorizontal: 4
+  },
   buttonDisabled: { backgroundColor: '#ccc', borderColor: '#aaa' },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-
   stepsContainer: {
     backgroundColor: 'rgba(255,255,255,0.8)',
     paddingHorizontal: 8,
     borderRadius: 10,
     paddingVertical: 8,
+    flex: 1
   },
 
   inputTextContainer: {
@@ -357,7 +442,7 @@ const styles = StyleSheet.create({
     borderColor: "#000",
     borderWidth: 1,
     width: "100%",
-    flex: 1,
+
     alignSelf: "stretch"
   },
   inputText: {
@@ -367,6 +452,51 @@ const styles = StyleSheet.create({
     fontFamily: "Roboto-Regular",
     color: "#000",
     textAlign: "left"
+  },
+
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    minHeight: 60,
+  },
+  addButton: {
+    margin:4,
+    width: "18%",
+    backgroundColor: '#aaa',
+    padding: 12,
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  addText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600'
+  },
+  stopsContainer: {
+    marginTop: 12,
+    flexDirection: 'row',
+    flexWrap: 'wrap'
+  },
+  stopItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderColor: '#000',
+    borderWidth: 1,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+    margin: 4
+  },
+  stopText: {
+    marginRight: 6,
+    color: '#000'
+  },
+  removeText: {
+    color: '#000',
+    fontWeight: '600'
   },
 
 });
