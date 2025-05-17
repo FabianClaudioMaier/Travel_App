@@ -2,7 +2,6 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   Dimensions,
-  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -14,11 +13,10 @@ import {
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import StepIndicator from 'react-native-step-indicator';
-import Swiper from 'react-native-swiper';
 
 // API Client
 import { City, Region } from '@/interfaces/destinations';
-import api from '../../services/api';
+import api from '@/services/api';
 
 // Components
 import { Picker } from '@react-native-picker/picker';
@@ -29,20 +27,6 @@ import Summary from './Summary';
 import { FontAwesome } from '@expo/vector-icons';
 
 const { width, height } = Dimensions.get('window');
-
-// Assets
-const bgImages = [
-  require('../../assets/images/beach.png'),
-  require('../../assets/images/countryside.png'),
-  require('../../assets/images/greek-coast-sunshine.png'),
-  require('../../assets/images/mountain.jpg'),
-];
-const bgImagesDescription = [
-  { title: 'Cliffs of Dover', text: "Marvel the beauty..." },
-  { title: 'Swiss Alps', text: 'Chocolate, Cheese and endless Charm...' },
-  { title: 'Aegean Islands', text: 'Since Antiquity...' },
-  { title: 'Valleys of California', text: '' },
-];
 
 const MODES = [
   { key: 'bus', label: 'Bus' },
@@ -98,10 +82,6 @@ export default function TripConfigurator() {
   const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
   const [selectedCity, setSelectedCity] = useState<City | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-
-  const [queryStop, setQueryStop] = useState('');
-  const [selectedStop, setSelectedStop] = useState<City | null>(null);
-  const [stops, setStops] = useState<City[]>([]);
 
   // Steps 2-5
   const [startDate, setStartDate] = useState(new Date());
@@ -208,12 +188,12 @@ export default function TripConfigurator() {
           regionName: selectedCity?.city_name,
           origin: startCity,
           originAirport,
-          stops: stops.map(s => s.city_name),
-          stopsAirport: stops.map(s => s.IATA),
+          cities: [selectedCity?.city_name ?? ''],
+          citiesAirport: [selectedCity?.IATA ?? ''],
           modes: selectedModes,
-          dates: { start: startDate, end: endDate },
+          dates: [startDate.toISOString(), endDate.toISOString()],
           price: maxPrice,
-          people: { adults: numberOfAdults, children: numberOfChildren }
+          people: [numberOfAdults, numberOfChildren]
         }
       });
     }
@@ -337,10 +317,10 @@ export default function TripConfigurator() {
       case 5:
         return (
           <Summary
-            people={numberOfAdults + numberOfChildren}
-            region={selectedCity?.city_name ?? ''}
-            stops={[]}
-            price={maxPrice}
+            numberOfAdults={numberOfAdults}
+            numberOfChildren={numberOfChildren}
+            cities={[selectedCity?.city_name ?? '']}
+            maxPrice={maxPrice}
             modes={selectedModes}
             startDate={startDate}
             endDate={endDate}
@@ -353,19 +333,6 @@ export default function TripConfigurator() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.backgroundSwiper}>
-        <Swiper autoplay loop showsPagination={false}>
-          {bgImages.map((img, idx) => (
-            <View key={idx} style={styles.slide}>
-              <Image source={img} style={styles.backgroundImage} resizeMode="cover" />
-              <View style={styles.descriptionOverlay}>
-                <Text style={styles.descriptionTitle}>{bgImagesDescription[idx].title}</Text>
-                <Text style={styles.descriptionText}>{bgImagesDescription[idx].text}</Text>
-              </View>
-            </View>
-          ))}
-        </Swiper>
-      </View>
       <KeyboardAwareScrollView style={styles.scrollArea} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" enableOnAndroid extraScrollHeight={Platform.OS === 'ios' ? 20 : 60}>
         <StepIndicator customStyles={stepIndicatorStyles} currentPosition={step} labels={labels} stepCount={labels.length} />
         <View style={styles.stepsContainer}>{renderContent()}</View>

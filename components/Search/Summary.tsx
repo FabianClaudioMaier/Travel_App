@@ -1,88 +1,69 @@
 import * as React from 'react';
 import { StyleSheet, View, Text } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { FontAwesome, Ionicons } from '@expo/vector-icons';
 
 interface SummaryProps {
-  people: number;
-  region: string;
-  stops: string[];
-  price: number;
-  modes: string[];
+  numberOfAdults: number;
+  numberOfChildren: number;
   startDate: Date;
   endDate: Date;
+  cities: string[];
+  maxPrice: number;
+  modes: string[];
 }
 
 export default function Summary({
-  people,
-  region,
-  stops,
-  price,
-  modes,
+  numberOfAdults,
+  numberOfChildren,
   startDate,
   endDate,
+  cities,
+  maxPrice,
+  modes,
 }: SummaryProps) {
-  const monthName = (d: Date) =>
-    d.toLocaleDateString('en-US', { month: 'long' });
+
   const days =
     Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.checkTitle}>Please Check!</Text>
-      <Text style={styles.heading}>Your Settings:</Text>
-      <View style={styles.row}>
-        <Ionicons name="person-outline" size={20} />
-        <Text style={styles.text}>{people} People</Text>
+    <View className="flex-1 p-4">
+      <Text className="text-2xl font-bold text-center mb-2">Your Journey:</Text>
+
+      <View className="flex-row items-center mb-2 gap-2">
+        <View className="w-10 h-6 items-center justify-center">
+          <FontAwesome name="map-marker" size={20}/>
+        </View>
+        <Text style={styles.text}>{cities.join(', ')}</Text>
       </View>
-      <View style={styles.row}>
-        <Ionicons name="time-outline" size={20} />
-        <Text style={styles.text}>{days} Days</Text>
+      <View className="flex-row items-center mb-2 gap-2">
+        <View className="w-10 h-6 items-center justify-center">
+          <FontAwesome name="user" size={20}/>
+        </View>
+        <Text style={styles.text}>{numberOfAdults} Adults, {numberOfChildren} Children</Text>
       </View>
-      <View style={styles.row}>
-        <Ionicons name="calendar-outline" size={20} />
+      <View className="flex-row items-center mb-2 gap-2">
+        <View className="w-10 h-6 items-center justify-center">
+          <FontAwesome name="calendar" size={20}/>
+        </View>
         <Text style={styles.text}>
-          {monthName(startDate)}
-          {monthName(startDate) !== monthName(endDate) ? `, ${monthName(endDate)}` : ''}
+          {startDate.toLocaleDateString('de-DE', { month: 'long', day: 'numeric', year: 'numeric' })} - {endDate.toLocaleDateString('de-DE', { month: 'long', day: 'numeric', year: 'numeric' })}
         </Text>
       </View>
-      <View style={styles.row}>
-        <Ionicons name="logo-euro" size={20} />
-        <Text style={styles.text}>€ {price}</Text>
-      </View>
-      <View style={styles.row}>
-        <Ionicons name="compass-outline" size={20} />
-        <Text style={styles.text}>{stops.join(', ')}</Text>
+      <View className="flex-row items-center mb-2 gap-2">
+        <View className="w-10 h-6 items-center justify-center">
+          <FontAwesome name="money" size={20}/>
+        </View>
+        <Text style={styles.text}>Max. € {maxPrice.toLocaleString()}</Text>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    width: '80%',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    alignSelf: 'center'
-  },
-  checkTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  heading: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
-    width: '50%',
   },
   text: {
     marginLeft: 8,
