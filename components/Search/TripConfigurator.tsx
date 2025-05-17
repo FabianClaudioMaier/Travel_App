@@ -288,7 +288,12 @@ export default function TripConfigurator() {
           </>
         );
       case 1:
-  return <NumberOfPeople numberOfAdults={numberOfAdults} onChangeNumberOfAdults={setNumberOfAdults} numberOfChildren={numberOfChildren} onChangeNumberOfChildren={setNumberOfChildren} />;
+  return (
+    <View className="items-center p-4">
+      <Text className="text-2xl font-bold mb-2">Passengers</Text>
+      <NumberOfPeople numberOfAdults={numberOfAdults} onChangeNumberOfAdults={setNumberOfAdults} numberOfChildren={numberOfChildren} onChangeNumberOfChildren={setNumberOfChildren} />
+    </View>
+  );
       case 2:
   return <InputDatePicker startDate={startDate} endDate={endDate} showStartPicker={showStartPicker} showEndPicker={showEndPicker} onStartPress={() => setShowStartPicker(true)} onEndPress={() => setShowEndPicker(true)} onChangeStart={onChangeStart} onChangeEnd={onChangeEnd} />;
       case 3:

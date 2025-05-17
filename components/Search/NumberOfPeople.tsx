@@ -8,8 +8,7 @@ import {
   Image,
   ScrollView
 } from 'react-native';
-import IconPlusImg from '../../assets/images/plus.png';
-import IconMinusImg from '../../assets/images/minus.png';
+import { FontAwesome } from '@expo/vector-icons';
 
 export interface NumberOfPeopleProps {
   /** Aktuelle Anzahl der Erwachsenen */
@@ -30,52 +29,53 @@ export interface NumberOfPeopleProps {
 
 export default function MaximalPrice({ numberOfAdults, onChangeNumberOfAdults, numberOfChildren, onChangeNumberOfChildren }:NumberOfPeopleProps ) {
   return (
-    <View style={styles.container}>
+    <View className="items-center p-4">
       {/* Erläuterungstexte */}
-      <Text style={styles.note}>
+      <Text className="text-base font-bold opacity-70 text-center mb-1 w-[300px]">
         Adults
       </Text>
 
       {/* manueller Wert */}
-      <View style={styles.manualContainer}>
+      <View className="flex flex-row items-center mb-3 gap-5">
         <TouchableOpacity
-          style={[styles.adjustButton, styles.plus]}
-          onPress={() => onChangeNumberOfAdults(numberOfAdults + 1)}
-        >
-          <Image source={IconPlusImg} style={{ width: 70, height: 70 }} />
-        </TouchableOpacity>
-        <Text style={styles.valueText}>{numberOfAdults}</Text>
-        <TouchableOpacity
-          style={[styles.adjustButton]}
+          className="w-[70px] h-[60px] rounded-lg border-2 border-black justify-center items-center mx-2 bg-[#f0f0f0]"
           onPress={() => onChangeNumberOfAdults(Math.max(0, numberOfAdults - 1))}
         >
-          <Image source={IconMinusImg} style={{ width: 70, height: 70 }} />
+          <FontAwesome name="minus" size={36} color="black" />
+        </TouchableOpacity>
+        <Text className="text-5xl font-bold mx-2">{numberOfAdults}</Text>
+        <TouchableOpacity
+          className="w-[70px] h-[60px] rounded-lg border-2 border-black justify-center items-center mx-2 bg-[#f0f0f0]"
+          onPress={() => onChangeNumberOfAdults(numberOfAdults + 1)}
+        >
+          <FontAwesome name="plus" size={36} color="black" />
         </TouchableOpacity>
       </View>
 
       {/* Erläuterungstexte */}
-      <Text style={styles.note}>
+      <Text className="text-base font-bold opacity-70 text-center mb-1 w-[300px]">
         Children
       </Text>
-      <Text style={styles.subNote}>
+      <Text className="text-sm text-gray-500 text-center mb-1 w-[300px]">
         12 Years or Younger
       </Text>
 
       {/* manueller Wert */}
-      <View style={styles.manualContainer}>
+      <View className="flex flex-row items-center mb-3 gap-5">
         <TouchableOpacity
-          style={[styles.adjustButton, styles.plus]}
-          onPress={() => onChangeNumberOfChildren(numberOfChildren + 1)}
-        >
-          <Image source={IconPlusImg} style={{ width: 70, height: 70 }} />
-        </TouchableOpacity>
-        <Text style={styles.valueText}>{numberOfChildren}</Text>
-        <TouchableOpacity
-          style={[styles.adjustButton]}
+          className="w-[70px] h-[60px] rounded-lg border-2 border-black justify-center items-center mx-2 bg-[#f0f0f0]"
           onPress={() => onChangeNumberOfChildren(Math.max(0, numberOfChildren - 1))}
         >
-          <Image source={IconMinusImg} style={{ width: 70, height: 70 }} />
+          <FontAwesome name="minus" size={36} color="black" />
         </TouchableOpacity>
+        <Text className="text-5xl font-bold mx-2">{numberOfChildren}</Text>
+        <TouchableOpacity
+          className="w-[70px] h-[60px] rounded-lg border-2 border-black justify-center items-center mx-2 bg-[#f0f0f0]"
+          onPress={() => onChangeNumberOfChildren(numberOfChildren + 1)}
+        >
+          <FontAwesome name="plus" size={36} color="black" />
+        </TouchableOpacity>
+        
       </View>
 
 
@@ -84,47 +84,4 @@ export default function MaximalPrice({ numberOfAdults, onChangeNumberOfAdults, n
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-   borderRadius: 10,
-   alignItems: 'center',
-   backgroundColor: '#fff',
-   opacity: 0.8
-   },
-  manualContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 20,
-  },
-  valueText: {
-    fontSize: 40,
-    fontWeight: '700',
-    marginHorizontal: 4,
-  },
-  adjustButton: {
-    width: 70,
-    height: 60,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#000',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginHorizontal: 8,
-    backgroundColor: '#f0f0f0',
-  },
-  note: {
-    fontSize: 16,
-    fontWeight: '700',
-    opacity: 0.7,
-    textAlign: 'center',
-    marginBottom: 4,
-    width: 300
-  },
-  subNote: {
-    fontSize: 14,
-    opacity: 0.7,
-    textAlign: 'center',
-    width: 270,
-  },
-});
+const styles = StyleSheet.create({});

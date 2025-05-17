@@ -5,10 +5,10 @@ import {
   Text,
   Pressable,
   StyleSheet,
-  Image
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import containerImg from '../../assets/images/container.png';
+import { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { FontAwesome } from '@expo/vector-icons';
 
 export interface InputDatePickerProps {
   /** Aktuelles Start-Datum */
@@ -48,47 +48,47 @@ export default function InputDatePicker({
   onChangeEnd,
 }: InputDatePickerProps) {
   return (
-    <SafeAreaView style={[styles.inputDatePicker]}>
+    <View className="rounded-lg p-4 items-center">
       {/* Header mit Titel */}
-      <View style={styles.header}>
-        <Text style={styles.selectDate}>
-          Select the Start and Enddate of your Journey:
+      <View className="mb-4">
+        <Text className="text-lg">
+          Select the Departure and Return date of your Journey:
         </Text>
       </View>
-      <View style={[styles.date, styles.dayFlexBox]}>
+      {/* <View style={[styles.date, styles.dayFlexBox]}>
         <Text style={[styles.weekDayDay, styles.dayFlexBox]}>Enter dates</Text>
         <View style={styles.iconButton}>
-            <Image source={containerImg} style={{ width: 40, height: 40 }} />
+            <FontAwesome name="calendar" size={24} color="black" />
         </View>
-      </View>
+      </View> */}
 
       {/* Start- und End-Datum */}
-      <View style={styles.dateReturn}>
+      <View className='flex-row items-center justify-between'>
         {/* Start */}
-        <View style={[styles.textField]}>
-          <Pressable style={[styles.textField1]} onPress={onStartPress}>
-            <View style={[styles.stateLayer]}>
-              <Text style={styles.textTypo}>
+        <View className='flex-1 text-center'>
+          <Text className='text-base font-bold my-1 ml-1'>Departure</Text>
+          <Pressable className="border-2 border-black rounded" onPress={onStartPress}>
+            <View className='items-center justify-center h-12'>
+              <Text className='text-base font-bold'>
                 {startDate.toLocaleDateString('de-DE')}
               </Text>
             </View>
           </Pressable>
-          <Text style={styles.supportingText1}>Startdate</Text>
         </View>
 
         {/* Spacer */}
         <View style={{ width: 16 }} />
 
         {/* Ende */}
-        <View style={[styles.textField]}>
-          <Pressable style={[styles.textField1]} onPress={onEndPress}>
-            <View style={[styles.stateLayer]}>
-              <Text style={styles.textTypo}>
+        <View className='flex-1 text-center'>
+          <Text className='text-base font-bold my-1 ml-1'>Return</Text>
+          <Pressable className="border-2 border-black rounded" onPress={onEndPress}>
+            <View className='items-center justify-center h-12'>
+              <Text className='text-base font-bold'>
                 {endDate.toLocaleDateString('de-DE')}
               </Text>
             </View>
           </Pressable>
-          <Text style={styles.supportingText1}>Enddate</Text>
         </View>
       </View>
 
@@ -109,96 +109,8 @@ export default function InputDatePicker({
           onChange={onChangeEnd}
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  inputDatePicker: {
-    borderRadius: 8,
-    padding: 16,
-    backgroundColor: '#fff',
-    opacity: 0.8
-  },
-  header: {
-    paddingBottom: 8,
-    marginBottom: 12,
-  },
-  selectDate: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#4b4b4b',
-    alignSelf: 'center'
-  },
-  dateReturn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  textField: {
-    flex: 1,
-  },
-  textField1: {
-    borderWidth: 3,
-    borderColor: '#000',
-    borderRadius: 4,
-    backgroundColor: '#fff'
-  },
-  stateLayer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    height: 48,
-  },
-  textTypo: {
-    fontSize: 14,
-    lineHeight: 24,
-    fontFamily: 'Inter-Regular',
-  },
-  supportingText1: {
-    marginTop: 4,
-    fontSize: 12,
-    color: '#49454f',
-  },
-  localActions: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 16,
-    gap: 40,
-  },
-  clearButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
-    backgroundColor: '#ddd',
-  },
-  labelText1: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  dayFlexBox: {
-      flex: 1,
-      alignSelf: "stretch",
-      alignItems: "center"
-  },
-  weekDayDay: {
-      fontSize: 32,
-      lineHeight: 40,
-      fontFamily: "Inter-Regular",
-      color: "#000",
-      textAlign: "left",
-      display: "flex",
-      alignItems: "center"
-  },
-  iconButton: {
-      width: 48,
-      height: 48,
-      justifyContent: "center",
-      alignItems: "center"
-  },
-  date: {
-      width: "100%",
-      flexDirection: "row",
-      gap: 1,
-      alignItems: "center"
-  }
-});
+const styles = StyleSheet.create({});
