@@ -8,8 +8,7 @@ import {
   Image,
   ScrollView
 } from 'react-native';
-import IconPlusImg from '../../assets/images/plus.png';
-import IconMinusImg from '../../assets/images/minus.png';
+import { FontAwesome } from '@expo/vector-icons';
 
 export interface MaximalPriceProps {
   /** Aktueller maximaler Preis (in Euro) */
@@ -21,31 +20,31 @@ export interface MaximalPriceProps {
   onChange: (newPrice: number) => void;
 }
 
-const PRICE_OPTIONS = [500, 1000, 2000, 3000, 5000, 10000,];
+const PRICE_OPTIONS = [100, 200, 500, 1000, 2000];
 
 export default function MaximalPrice({ maxPrice, onChange }:MaximalPriceProps ) {
   return (
-    <View style={styles.container}>
+    <View className="p-4 items-center">
       {/* Erläuterungstexte */}
-      <Text style={styles.note}>
+      <Text className="text-base font-bold text-gray-500 text-center mb-2">
         The total price of the journey should not exceed this price*
       </Text>
 
       {/* manueller Wert */}
-      <View style={styles.manualContainer}>
+      <View className="flex-row items-center gap-4 mb-4">
         <TouchableOpacity
-          style={[styles.adjustButton, styles.plus]}
-          onPress={() => onChange(maxPrice + 500)}
+          className="w-[70px] h-[60px] rounded-lg border-2 border-black justify-center items-center mx-2 bg-[#f0f0f0]"
+          onPress={() => onChange(Math.max(0, maxPrice - 100))}
         >
-          <Image source={IconPlusImg} style={{ width: 70, height: 70 }} />
-        </TouchableOpacity>
-        <Text style={styles.valueText}>{maxPrice}</Text>
-        <Text style={styles.currency}>€</Text>
+          <FontAwesome name="minus" size={24} color="black" />
+        </TouchableOpacity>        
+        <Text className="text-5xl font-bold mx-2">{maxPrice}</Text>
+        <Text className="text-5xl font-bold">€</Text>
         <TouchableOpacity
-          style={[styles.adjustButton]}
-          onPress={() => onChange(Math.max(0, maxPrice - 500))}
+          className="w-[70px] h-[60px] rounded-lg border-2 border-black justify-center items-center mx-2 bg-[#f0f0f0]"
+          onPress={() => onChange(maxPrice + 100)}
         >
-          <Image source={IconMinusImg} style={{ width: 70, height: 70 }} />
+          <FontAwesome name="plus" size={24} color="black" />
         </TouchableOpacity>
       </View>
 
@@ -55,96 +54,27 @@ export default function MaximalPrice({ maxPrice, onChange }:MaximalPriceProps ) 
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipGroups}
+        className="flex-row flex-wrap justify-left mb-4"
       >
         {PRICE_OPTIONS.map(p => (
           <TouchableOpacity
             key={p}
-            style={[
-              styles.chip,
-              maxPrice === p && styles.chipSelected
-            ]}
+            className='px-2 py-1 border-2 border-black rounded-lg mr-2'
+            style={{ backgroundColor: maxPrice === p ? 'black' : 'white' }}
             onPress={() => onChange(p)}
           >
-            <Text style={[
-              styles.chipText,
-              maxPrice === p && styles.chipTextSelected
-            ]}>
+            <Text className="text-base font-bold" style={{ color: maxPrice === p ? 'white' : 'black' }}>
               {p.toLocaleString()} €
             </Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
 
-      <Text style={styles.subNote}>
+      <Text className="text-sm text-gray-500 text-center mb-1 w-[300px]">
         *If we are unable to find a fitting trip, we will show you the cheapest result.
       </Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-   borderRadius: 10,
-   alignItems: 'center',
-   backgroundColor: '#fff',
-   opacity: 0.8
-   },
-  chipGroups: {
-    flexDirection: 'row',
-    flexWrap: 'nowrap',
-    justifyContent: 'left',
-    gap: 8,
-    marginBottom: 16,
-    paddingHorizontal: 20
-  },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#000',
-    backgroundColor: '#fff',
-    overflow: 'hidden'
-  },
-  chipSelected: { backgroundColor: '#000' },
-  chipText: { fontSize: 14, color: '#000' },
-  chipTextSelected: { color: '#fff' },
-  manualContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 20,
-  },
-  valueText: {
-    fontSize: 40,
-    fontWeight: '700',
-    marginHorizontal: 4,
-  },
-  currency: { fontSize: 40, fontWeight: '700' },
-  adjustButton: {
-    width: 70,
-    height: 60,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#000',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginHorizontal: 8,
-    backgroundColor: '#f0f0f0',
-  },
-  note: {
-    fontSize: 16,
-    fontWeight: '700',
-    opacity: 0.7,
-    textAlign: 'center',
-    marginBottom: 4,
-    width: 300
-  },
-  subNote: {
-    fontSize: 14,
-    opacity: 0.7,
-    textAlign: 'center',
-    width: 270,
-  },
-});
+const styles = StyleSheet.create({});

@@ -26,6 +26,7 @@ import InputDatePicker from './InputDatePicker';
 import MaximalPrice from './MaximalPrice';
 import NumberOfPeople from './NumberOfPeople';
 import Summary from './Summary';
+import { FontAwesome } from '@expo/vector-icons';
 
 const { width, height } = Dimensions.get('window');
 
@@ -56,7 +57,6 @@ const labels = [
   'People',
   'Dates',
   'Price',
-  'Stops',
   'Modes',
   'Summary',
 ];
@@ -159,9 +159,12 @@ export default function TripConfigurator() {
 
   // Datum-Picker Handlers
   const onChangeStart = (_event: any, selectedDate?: Date) => {
-    // Wenn der Nutzer abgebrochen hat, selectedDate ist undefined
     if (selectedDate) {
       setStartDate(selectedDate);
+      // If end date is before new start date, update it
+      if (endDate < selectedDate) {
+        setEndDate(selectedDate);
+      }
     }
     setShowStartPicker(false);
   };
@@ -188,10 +191,9 @@ export default function TripConfigurator() {
     switch (step) {
       case 0: return !!selectedCity;
       case 1: return numberOfAdults + numberOfChildren > 0;
-      case 2: return !!endDate;
+      case 2: return !!startDate && !!endDate;
       case 3: return maxPrice > 0;
-      case 4: return stops.length > 0;
-      case 5: return selectedModes.length > 0;
+      case 4: return selectedModes.length > 0;
       default: return true;
     }
   };
@@ -217,16 +219,6 @@ export default function TripConfigurator() {
     }
   };
 
-  // Add/Remove stops
-  const addStop = () => {
-    if (selectedStop && !stops.some(s => s.city_name === selectedStop.city_name) && stops.length < 5) {
-      setStops([...stops, selectedStop]);
-      setQueryStop('');
-      setSelectedStop(null);
-    }
-  };
-  const removeStop = (cityName: string) => setStops(stops.filter(s => s.city_name !== cityName));
-
   // Render step content
   const renderContent = () => {
     switch (step) {
@@ -236,21 +228,21 @@ export default function TripConfigurator() {
             <Text className="text-2xl font-bold text-center mb-2">Destination</Text>
             <Text className="text-sm text-gray-500">Select a region</Text>
             <View className="border border-gray-200 rounded-md">
-            <Picker
-              selectedValue={selectedRegionId}
-              onValueChange={(value) => {
-                setSelectedRegionId(value);
-                setSelectedCity(null);
-                setShowDropdown(false);
-                setSearchQuery('');
-              }}
-            >
-              <Picker.Item key="all" label="All Regions" value={null} />
-              {regions.map(r => (
-                <Picker.Item key={r.id} label={r.name} value={r.id} />
-              ))}
-            </Picker>
-          </View >
+              <Picker
+                selectedValue={selectedRegionId}
+                onValueChange={(value) => {
+                  setSelectedRegionId(value);
+                  setSelectedCity(null);
+                  setShowDropdown(false);
+                  setSearchQuery('');
+                }}
+              >
+                <Picker.Item key="all" label="All Regions" value={null} />
+                {regions.map(r => (
+                  <Picker.Item key={r.id} label={r.name} value={r.id} />
+                ))}
+              </Picker>
+            </View >
             <Text className="text-md text-gray-500 mt-4">Select a city</Text>
             <TextInput
               className="border border-gray-200 rounded-md p-4"
@@ -263,121 +255,127 @@ export default function TripConfigurator() {
               }}
               onFocus={() => setShowDropdown(true)}
             />
-        {
-          showDropdown && (
-            <View className="absolute top-full left-0 right-0 z-[1000] bg-white border border-gray-200 rounded shadow-lg">
-              <ScrollView style={{ maxHeight: 240 }}>
-                {filteredCities.map(city => (
-                  <TouchableOpacity
-                    key={city.id}
-                    onPress={() => {
-                      setSearchQuery(`${city.city_name}, ${city.country}`);
-                      setSelectedCity(city);
-                      setSelectedRegionId(city.region_id);
-                      setShowDropdown(false);
-                    }}
-                    className="border-b border-gray-200 p-4"
-                  >
-                    <Text className="text-lg text-gray-500">{city.city_name}, {city.country}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          )
-        }
+            {
+              showDropdown && (
+                <View className="absolute top-full left-0 right-0 z-[1000] bg-white border border-gray-200 rounded shadow-lg">
+                  <ScrollView style={{ maxHeight: 240 }}>
+                    {filteredCities.map(city => (
+                      <TouchableOpacity
+                        key={city.id}
+                        onPress={() => {
+                          setSearchQuery(`${city.city_name}, ${city.country}`);
+                          setSelectedCity(city);
+                          setSelectedRegionId(city.region_id);
+                          setShowDropdown(false);
+                        }}
+                        className="border-b border-gray-200 p-4"
+                      >
+                        <Text className="text-lg text-gray-500">{city.city_name}, {city.country}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )
+            }
           </>
         );
       case 1:
-  return (
-    <View className="items-center p-4">
-      <Text className="text-2xl font-bold mb-2">Passengers</Text>
-      <NumberOfPeople numberOfAdults={numberOfAdults} onChangeNumberOfAdults={setNumberOfAdults} numberOfChildren={numberOfChildren} onChangeNumberOfChildren={setNumberOfChildren} />
-    </View>
-  );
+        return (
+          <View className="items-center p-4">
+            <Text className="text-2xl font-bold mb-2">Passengers</Text>
+            <NumberOfPeople numberOfAdults={numberOfAdults} onChangeNumberOfAdults={setNumberOfAdults} numberOfChildren={numberOfChildren} onChangeNumberOfChildren={setNumberOfChildren} />
+          </View>
+        );
       case 2:
-  return <InputDatePicker startDate={startDate} endDate={endDate} showStartPicker={showStartPicker} showEndPicker={showEndPicker} onStartPress={() => setShowStartPicker(true)} onEndPress={() => setShowEndPicker(true)} onChangeStart={onChangeStart} onChangeEnd={onChangeEnd} />;
+        return (
+          <View className="items-center">
+            <Text className="text-2xl font-bold mt-4">Dates</Text>
+            <InputDatePicker
+              startDate={startDate}
+              endDate={endDate}
+              showStartPicker={showStartPicker}
+              showEndPicker={showEndPicker}
+              onStartPress={() => setShowStartPicker(true)}
+              onEndPress={() => setShowEndPicker(true)}
+              onChangeStart={onChangeStart}
+              onChangeEnd={onChangeEnd}
+            />
+          </View>
+        );
       case 3:
-  return <MaximalPrice maxPrice={maxPrice} onChange={setMaxPrice} />;
+        return <MaximalPrice maxPrice={maxPrice} onChange={setMaxPrice} />;
       case 4:
-  return (
-    <View>
-      <Text style={styles.label}>Select Stops in {selectedCity?.city_name}</Text>
-      {stops.length > 0 && (
-        <View style={styles.stopsContainer}>
-          {stops.map((s, i) => (
-            <View key={i} style={styles.stopItem}>
-              <Text style={styles.stopText}>{s.city_name}</Text>
-              <TouchableOpacity onPress={() => removeStop(s.city_name)}>
-                <Text style={styles.removeText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
-        </View>
-      )}
-      <View style={[styles.row, styles.inputTextContainer]}>
-        <TextInput
-          style={[styles.inputText, { flex: 1 }]}
-          placeholder="Enter a stop..."
-          value={queryStop}
-          onChangeText={text => { setQueryStop(text); setSelectedStop(null); }}
-        />
-        <Pressable
-          style={[styles.addButton, (!selectedStop || stops.some(s => s.city_name === selectedStop.city_name)) && styles.buttonDisabled]}
-          onPress={addStop} disabled={!selectedStop || stops.some(s => s.city_name === selectedStop.city_name)}
-        >
-          <Text style={styles.addText}>Add</Text>
-        </Pressable>
-      </View>
-    </View>
-  );
-      case 5:
-  return (
-    <View style={styles.modesContainer}>
-      {MODES.map(m => <TouchableOpacity key={m.key} style={[styles.modeItem, selectedModes.includes(m.key) && styles.modeSelected]} onPress={() => toggleMode(m.key)}><Text style={[styles.modeText, selectedModes.includes(m.key) && styles.modeTextSelected]}>{m.label}</Text></TouchableOpacity>)}
-    </View>
-  );
-      case 6:
-  return (
-    <Summary
-      people={numberOfAdults + numberOfChildren}
-      region={selectedCity?.city_name ?? ''}
-      stops={stops.map(s => s.city_name)}
-      price={maxPrice}
-      modes={selectedModes}
-      startDate={startDate}
-      endDate={endDate}
-    />
-  );
-      default:
-  return null;
-}
-  };
-
-return (
-  <View style={styles.container}>
-    <View style={styles.backgroundSwiper}>
-      <Swiper autoplay loop showsPagination={false}>
-        {bgImages.map((img, idx) => (
-          <View key={idx} style={styles.slide}>
-            <Image source={img} style={styles.backgroundImage} resizeMode="cover" />
-            <View style={styles.descriptionOverlay}>
-              <Text style={styles.descriptionTitle}>{bgImagesDescription[idx].title}</Text>
-              <Text style={styles.descriptionText}>{bgImagesDescription[idx].text}</Text>
+        return (
+          <View className="items-center p-4">
+            <Text className="text-2xl font-bold mb-2">Transport Modes</Text>
+            <Text className="text-sm text-gray-500">Select the modes of transport you want to use</Text>
+            <View className="flex-row flex-wrap mt-4 justify-between items-center">
+              {MODES.map(m => (
+                <TouchableOpacity
+                  key={m.key}
+                  className="px-4 py-2 bg-white border-2 border-black rounded-full mr-2"
+                  style={{ backgroundColor: selectedModes.includes(m.key) ? 'black' : 'white' }}
+                  onPress={() => toggleMode(m.key)}>
+                  <View className="flex-row items-center">
+                    <FontAwesome
+                      name={m.key === 'bus' ? 'bus' : m.key === 'train' ? 'train' : 'plane'}
+                      size={24}
+                      color={selectedModes.includes(m.key) ? 'white' : 'black'}
+                    />
+                    <Text
+                      className="text-lg font-bold ml-2"
+                      style={{ color: selectedModes.includes(m.key) ? 'white' : 'black' }}
+                    >
+                      {m.label}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
-        ))}
-      </Swiper>
-    </View>
-    <KeyboardAwareScrollView style={styles.scrollArea} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" enableOnAndroid extraScrollHeight={Platform.OS === 'ios' ? 20 : 60}>
-      <StepIndicator customStyles={stepIndicatorStyles} currentPosition={step} labels={labels} stepCount={labels.length} />
-      <View style={styles.stepsContainer}>{renderContent()}</View>
-      <View style={styles.navContainer}>
-        {step > 0 && <Pressable style={styles.navButton} onPress={() => setStep(step - 1)}><Text style={styles.buttonText}>Back</Text></Pressable>}
-        <Pressable style={[styles.navButton, !canNext() && styles.buttonDisabled]} onPress={onNext} disabled={!canNext()}><Text style={styles.buttonText}>{step === labels.length - 1 ? 'Show Route' : step === 0 ? 'Start' : 'Next'}</Text></Pressable>
+        );
+      case 5:
+        return (
+          <Summary
+            people={numberOfAdults + numberOfChildren}
+            region={selectedCity?.city_name ?? ''}
+            stops={[]}
+            price={maxPrice}
+            modes={selectedModes}
+            startDate={startDate}
+            endDate={endDate}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.backgroundSwiper}>
+        <Swiper autoplay loop showsPagination={false}>
+          {bgImages.map((img, idx) => (
+            <View key={idx} style={styles.slide}>
+              <Image source={img} style={styles.backgroundImage} resizeMode="cover" />
+              <View style={styles.descriptionOverlay}>
+                <Text style={styles.descriptionTitle}>{bgImagesDescription[idx].title}</Text>
+                <Text style={styles.descriptionText}>{bgImagesDescription[idx].text}</Text>
+              </View>
+            </View>
+          ))}
+        </Swiper>
       </View>
-    </KeyboardAwareScrollView>
-  </View>
-);
+      <KeyboardAwareScrollView style={styles.scrollArea} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" enableOnAndroid extraScrollHeight={Platform.OS === 'ios' ? 20 : 60}>
+        <StepIndicator customStyles={stepIndicatorStyles} currentPosition={step} labels={labels} stepCount={labels.length} />
+        <View style={styles.stepsContainer}>{renderContent()}</View>
+        <View style={styles.navContainer}>
+          {step > 0 && <Pressable style={styles.navButton} onPress={() => setStep(step - 1)}><Text style={styles.buttonText}>Back</Text></Pressable>}
+          <Pressable style={[styles.navButton, !canNext() && styles.buttonDisabled]} onPress={onNext} disabled={!canNext()}><Text style={styles.buttonText}>{step === labels.length - 1 ? 'Show Route' : step === 0 ? 'Start' : 'Next'}</Text></Pressable>
+        </View>
+      </KeyboardAwareScrollView>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({

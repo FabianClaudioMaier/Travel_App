@@ -1,39 +1,28 @@
-import React from 'react';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import React, { useEffect, useState } from 'react';
 import {
-  SafeAreaView,
-  View,
-  Text,
   Pressable,
   StyleSheet,
+  Text,
+  View
 } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { FontAwesome } from '@expo/vector-icons';
 
 export interface InputDatePickerProps {
-  /** Aktuelles Start-Datum */
+  /** Current start date */
   startDate: Date;
-  /** Aktuelles End-Datum */
+  /** Current end date */
   endDate: Date;
-  /** Picker für das Start-Datum anzeigen? */
+  /** Show start date picker? */
   showStartPicker: boolean;
-  /** Picker für das End-Datum anzeigen? */
+  /** Show end date picker? */
   showEndPicker: boolean;
-  /** Wird aufgerufen, wenn der Start-Date-Button gedrückt wird */
+  /** Called when start date button is pressed */
   onStartPress: () => void;
-  /** Wird aufgerufen, wenn der End-Date-Button gedrückt wird */
+  /** Called when end date button is pressed */
   onEndPress: () => void;
-  /**
-   * Callback, wenn im DateTimePicker ein neues Start-Datum gewählt wird.
-   * @param event das Picker-Event
-   * @param date das gewählte Datum (oder undefined beim Abbrechen)
-   */
+  /** Called when start date is changed */
   onChangeStart: (event: DateTimePickerEvent, date?: Date) => void;
-  /**
-   * Callback, wenn im DateTimePicker ein neues End-Datum gewählt wird.
-   * @param event das Picker-Event
-   * @param date das gewählte Datum (oder undefined beim Abbrechen)
-   */
+  /** Called when end date is changed */
   onChangeEnd: (event: DateTimePickerEvent, date?: Date) => void;
 }
 
@@ -47,6 +36,15 @@ export default function InputDatePicker({
   onChangeStart,
   onChangeEnd,
 }: InputDatePickerProps) {
+  const [isEndDateDisabled, setIsEndDateDisabled] = useState(true);
+
+  useEffect(() => {
+    // Enable end date if start date is set
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    setIsEndDateDisabled(startDate.getTime() <= today.getTime());
+  }, [startDate]);
+
   return (
     <View className="rounded-lg p-4 items-center">
       {/* Header mit Titel */}
@@ -55,19 +53,16 @@ export default function InputDatePicker({
           Select the Departure and Return date of your Journey:
         </Text>
       </View>
-      {/* <View style={[styles.date, styles.dayFlexBox]}>
-        <Text style={[styles.weekDayDay, styles.dayFlexBox]}>Enter dates</Text>
-        <View style={styles.iconButton}>
-            <FontAwesome name="calendar" size={24} color="black" />
-        </View>
-      </View> */}
 
       {/* Start- und End-Datum */}
       <View className='flex-row items-center justify-between'>
         {/* Start */}
         <View className='flex-1 text-center'>
           <Text className='text-base font-bold my-1 ml-1'>Departure</Text>
-          <Pressable className="border-2 border-black rounded" onPress={onStartPress}>
+          <Pressable
+            className="border-2 border-black rounded"
+            onPress={onStartPress}
+          >
             <View className='items-center justify-center h-12'>
               <Text className='text-base font-bold'>
                 {startDate.toLocaleDateString('de-DE')}
@@ -82,7 +77,11 @@ export default function InputDatePicker({
         {/* Ende */}
         <View className='flex-1 text-center'>
           <Text className='text-base font-bold my-1 ml-1'>Return</Text>
-          <Pressable className="border-2 border-black rounded" onPress={onEndPress}>
+          <Pressable
+            className={`border-2 border-black rounded ${isEndDateDisabled ? 'opacity-50' : ''}`}
+            onPress={onEndPress}
+            disabled={isEndDateDisabled}
+          >
             <View className='items-center justify-center h-12'>
               <Text className='text-base font-bold'>
                 {endDate.toLocaleDateString('de-DE')}
@@ -99,6 +98,7 @@ export default function InputDatePicker({
           mode="date"
           display="default"
           onChange={onChangeStart}
+          minimumDate={new Date()}
         />
       )}
       {showEndPicker && (
@@ -107,6 +107,7 @@ export default function InputDatePicker({
           mode="date"
           display="default"
           onChange={onChangeEnd}
+          minimumDate={startDate}
         />
       )}
     </View>
