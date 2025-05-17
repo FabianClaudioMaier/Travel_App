@@ -8,7 +8,7 @@ import {
   Image
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import containerImg from '../assets/images/container.png';
+import containerImg from '../../assets/images/container.png';
 
 export interface InputDatePickerProps {
   /** Aktuelles Start-Datum */

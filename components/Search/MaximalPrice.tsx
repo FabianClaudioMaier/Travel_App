@@ -8,8 +8,8 @@ import {
   Image,
   ScrollView
 } from 'react-native';
-import IconPlusImg from '../assets/images/plus.png';
-import IconMinusImg from '../assets/images/minus.png';
+import IconPlusImg from '../../assets/images/plus.png';
+import IconMinusImg from '../../assets/images/minus.png';
 
 export interface MaximalPriceProps {
   /** Aktueller maximaler Preis (in Euro) */

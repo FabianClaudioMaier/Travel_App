@@ -1,6 +1,6 @@
-import { ImageBackground, StyleSheet, Text, View } from 'react-native'
+import TripConfigurator from '@/components/Search/TripConfigurator'
 import React from 'react'
-import TripConfigurator from '@/components/TripConfigurator'
+import { ImageBackground, StyleSheet, View } from 'react-native'
 
 const Search = () => {
   return (
