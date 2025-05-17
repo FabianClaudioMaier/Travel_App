@@ -20,23 +20,18 @@ import ProfileServices from '@/components/ProfileData/ProfileServices';
 import ProfileTransportation from '@/components/ProfileData/ProfileTransportation';
 
 
-// --- Typen für gespeicherte Reisen ---
 interface TravelRecord {
+  id: string;               // neu
   origin: string;
-  originAirport?: string;        // neu
+  originAirport?: string;
   stops: string[];
-  stopsAirport?: string[];       // neu
+  stopsAirport?: string[];
   destination: string;
-  destinationAirport?: string;   // neu
+  destinationAirport?: string;
   modes?: string[];
   start_date?: string;
   end_date?: string;
-  label?: string;
-  durationSec?: number;
-  distanceKm?: number;
-  duration?: number;
-  distance?: number;
-  route?: { distanceMeters?: number };
+  legs?: any[];             // oder deine konkrete Legs-Typen
 }
 
 
@@ -97,17 +92,7 @@ export default function ProfileScreen() {
         onPress={() =>
           router.push({
             pathname: '/result',
-            params: {
-              origin:              item.origin,
-              originAirport:       item.originAirport  ?? '',
-              stops:               item.stops,
-              stopsAirport:        item.stopsAirport   ?? [],
-              destination:         item.destination,
-              destinationAirport:  item.destinationAirport ?? '',
-              modes:               item.modes?.join(',') ?? '',
-              start_date:          item.start_date     ?? '',
-              end_date:            item.end_date       ?? '',
-            },
+            params: { id: item.id },   // nur noch die ID
           })
         }
       >

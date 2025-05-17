@@ -7,7 +7,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
-  Pressable,
+  Alert,
 } from 'react-native';
 import MapView, { Polyline, Marker, LatLng } from 'react-native-maps';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -15,6 +15,8 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import api from '../../services/api';
 import { Flight, TransitRoute } from '@/interfaces/routes';
+import 'react-native-get-random-values';
+import { v4 as uuidv4 } from 'uuid';
 
 interface RouteInfo {
   duration: number;
@@ -29,14 +31,15 @@ interface Leg {
 }
 
 interface Params {
-  origin: string;
-  stops?: string;
-  modes?: string;
+  id?: string;             // neu: wenn aus ProfileScreen
+  origin?: string;         // wenn aus SearchScreen
   originAirport?: string;
-  stopsAirport?: string;
-  price?: string;
+  stops?: string;          // CSV
+  stopsAirport?: string;   // CSV
+  modes?: string;          // CSV
   start_date?: string;
   end_date?: string;
+  price?: string;
 }
 
 const { width, height } = Dimensions.get('window');
@@ -237,100 +240,113 @@ const LegCard: React.FC<LegCardProps> = ({ leg, originCity, destCity, date }) =>
 export default function ResultScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<Params>();
-
-  // Params
-  const origin = params.origin!;
-  const destination = params.origin!;
-  const originAirport = params.originAirport ?? '';
-  const destinationAirport = params.originAirport ?? '';
-
-  const rawStops = params.stops;
-  const stops: string[] = rawStops
-    ? Array.isArray(rawStops)
-      ? rawStops
-      : rawStops.split(',')
-    : [];
-  const rawStopsAirport = params.stopsAirport;
-  const stopsAirport: string[] = rawStopsAirport
-    ? Array.isArray(rawStopsAirport)
-      ? rawStopsAirport
-      : rawStopsAirport.split(',')
-    : [];
-
-  const priceLimit = params.price ? Number(params.price) : Infinity;
-  const modes = params.modes?.split(',') ?? ['transit'];
-  const rawStart = params.start_date;
-  const rawEnd = params.end_date;
-  const startDate = rawStart ? new Date(rawStart) : undefined;
-  const endDate = rawEnd ? new Date(rawEnd) : undefined;
-
-  const [finalLegs, setFinalLegs] = useState<(LegCardProps & { date?: string })[]>([]);
-  const [cards, setCards] = useState<LegCardProps[]>([]);
   const [loading, setLoading] = useState(true);
+  const [origin, setOrigin] = useState('');
+  const [destination, setDestination] = useState('');
+  const [originAirport, setOriginAirport] = useState('');
+  const [destinationAirport, setDestinationAirport] = useState('');
+  const [stops, setStops] = useState<string[]>([]);
+  const [stopsAirport, setStopsAirport] = useState<string[]>([]);
+  const [modes, setModes] = useState<string[]>([]);
+  const [rawStart, setRawStart] = useState<string|undefined>(undefined);
+  const [rawEnd, setRawEnd]     = useState<string|undefined>(undefined);
+  const [startDate, setStartDate]   = useState<Date|undefined>(undefined);
+  const [endDate, setEndDate]       = useState<Date|undefined>(undefined);
+  const [priceLimit, setPriceLimit] = useState<number>(Infinity);
+  const [finalLegs, setFinalLegs] = useState<(Leg|null)[]>([]);
+  const [cards, setCards]         = useState<LegCardProps[]>([]);
 
   useEffect(() => {
     (async () => {
-      // Cache
-      let found = false;
-      try {
-        const json = await AsyncStorage.getItem('myTravels');
-        const trips = json ? JSON.parse(json) : [];
-        const match = trips.find((t: any) =>
-          t.origin === origin &&
-          JSON.stringify(t.stops) === JSON.stringify(stops) &&
-          t.destination === destination &&
-          JSON.stringify(t.modes) === JSON.stringify(modes) &&
-          t.start_date === rawStart &&
-          t.end_date === rawEnd
-        );
-        if (match) {
-          setFinalLegs(match.legs);
-          found = true;
+      // FALL 1: laden per ID
+      if (params.id) {
+        try {
+          const json = await AsyncStorage.getItem('myTravels');
+          const arr  = json ? JSON.parse(json) : [];
+          const rec  = arr.find((r: any) => r.id === params.id);
+          if (!rec) {
+            Alert.alert('Fehler', 'Reise nicht gefunden.');
+            return;
+          }
+          setOrigin(rec.origin);
+          setDestination(rec.destination);
+          setOriginAirport(rec.originAirport || '');
+          setDestinationAirport(rec.destinationAirport || '');
+          setStops(rec.stops || []);
+          setStopsAirport(rec.stopsAirport || []);
+          setModes(rec.modes || []);
+          setRawStart(rec.start_date);
+          setStartDate(rec.start_date ? new Date(rec.start_date) : undefined);
+          setRawEnd(rec.end_date);
+          setEndDate(rec.end_date ? new Date(rec.end_date) : undefined);
+          setPriceLimit(typeof rec.priceLimit === 'number' ? rec.priceLimit : Infinity);
+          setFinalLegs(rec.legs || []);
+        } catch (e) {
+          console.warn('Laden fehlgeschlagen', e);
+        } finally {
+          setLoading(false);
         }
-      } catch (e) {
-        console.warn('Cache load failed', e);
+        return;
       }
-      if (!found) {
-        // Permutations
-        const perms = permute(stops);
-        let bestOverall: { legs: (Leg | null)[]; time: number; price: number } | null = null;
+
+      // FALL 2: Search-Params
+      const o  = params.origin!;
+      const oa = params.originAirport ?? '';
+      const s  = params.stops ? params.stops.split(',') : [];
+      const sa = params.stopsAirport ? params.stopsAirport.split(',') : [];
+      const m  = params.modes ? params.modes.split(',') : [];
+      const rs = params.start_date;
+      const re = params.end_date;
+      const pl = params.price ? Number(params.price) : Infinity;
+
+      setOrigin(o);
+      setDestination(o);
+      setOriginAirport(oa);
+      setDestinationAirport(oa);
+      setStops(s);
+      setStopsAirport(sa);
+      setModes(m);
+      setRawStart(rs);
+      setStartDate(rs ? new Date(rs) : undefined);
+      setRawEnd(re);
+      setEndDate(re ? new Date(re) : undefined);
+      setPriceLimit(pl);
+
+      try {
+        const perms = permute(s);
+        let bestOverall: { legs: (Leg|null)[]; time: number; price: number } | null = null;
         for (const perm of perms) {
-          const seqCities = [origin, ...perm, destination];
-          const seqAirports = [
-            originAirport,
-            ...perm.map((_, i) => stopsAirport[i] || ''),
-            destinationAirport,
-          ];
-          let sumTime = 0;
-          let sumPrice = 0;
-          const legs: (Leg | null)[] = [];
+          const seqCities   = [o, ...perm, o];
+          const seqAirports = [oa, ...perm.map((_, i) => sa[i]||''), oa];
+          let sumTime = 0, sumPrice = 0;
+          const legs: (Leg|null)[] = [];
           for (let i = 0; i < seqCities.length - 1; i++) {
             const leg = await getBestLeg(
-              seqCities[i], seqCities[i + 1],
-              seqAirports[i], seqAirports[i + 1],
-              modes
+              seqCities[i], seqCities[i+1],
+              seqAirports[i], seqAirports[i+1],
+              m
             );
             if (!leg) { sumTime = Infinity; break; }
             sumTime += leg.route.duration;
-            sumPrice += leg.route.distanceMeters * 0.0 + (leg.label === 'Flight' ? leg.route.raw.price : 0);
+            sumPrice += (leg.label === 'Flight' ? leg.route.raw.price : 0);
             legs.push(leg);
           }
           if (sumTime === Infinity) continue;
-          if (sumPrice <= priceLimit) {
-            if (!bestOverall || sumTime < bestOverall.time) {
-              bestOverall = { legs, time: sumTime, price: sumPrice };
-            }
-          } else if (!bestOverall || (bestOverall.price > priceLimit && sumPrice < bestOverall.price)) {
+          if (!bestOverall || (sumPrice <= pl && sumTime < bestOverall.time) || (bestOverall.price > pl && sumPrice < bestOverall.price)) {
             bestOverall = { legs, time: sumTime, price: sumPrice };
           }
         }
-        if (bestOverall) {
-            setFinalLegs(bestOverall.legs);
+        if (bestOverall) setFinalLegs(bestOverall.legs);
+      } catch (e) {
+        console.error('Route-Berechnung fehlgeschlagen', e);
+      } finally {
+        setLoading(false);
       }
-    }
-      setLoading(false);
     })();
-  }, []);
+  }, [
+      params.id, params.origin, params.stops, params.price, params.date,
+      ]);
+
 
   useEffect(() => {
     // Wenn finalLegs leer, nix tun
@@ -362,23 +378,37 @@ export default function ResultScreen() {
     setCards(cardData);
   }, [finalLegs]);
 
-
-  const onSave = async () => {
+  async function onSave() {
     if (!finalLegs.length) {
       Alert.alert('Fehler', 'Keine Route zum Speichern vorhanden.');
       return;
     }
-    const record = { id: Date.now(), origin, stops, destination, modes, start_date: rawStart, end_date: rawEnd, legs: finalLegs };
+
+    const record = {
+      id: uuidv4(),           // eindeutige ID
+      origin,
+      originAirport,
+      stops,
+      stopsAirport,
+      destination,
+      destinationAirport,
+      modes,
+      start_date: startDate,
+      end_date: endDate,
+      price: priceLimit,
+      legs: finalLegs,
+    };
+
     try {
       const json = await AsyncStorage.getItem('myTravels');
       const arr = json ? JSON.parse(json) : [];
       arr.push(record);
       await AsyncStorage.setItem('myTravels', JSON.stringify(arr));
-      Alert.alert('Gespeichert', 'Deine Route wurde abgelegt.');
-    } catch {
+      Alert.alert('Erfolg', 'Route erfolgreich gespeichert.');
+    } catch (e) {
       Alert.alert('Fehler', 'Speichern fehlgeschlagen.');
     }
-  };
+  }
 
   if (loading) return <ActivityIndicator style={styles.loader} size="large" />;
 
@@ -401,7 +431,8 @@ export default function ResultScreen() {
   const deltaLng = (Math.max(...lngs) - Math.min(...lngs)) * 1.2 || 0.05;
 
   return (
-    <ScrollView style={styles.container}>
+  <View style={styles.container}>
+    <ScrollView >
       <Text style={styles.header}>Routeübersicht</Text>
       {startDate && endDate && (
         <View style={styles.summaryContainer}>
@@ -429,10 +460,12 @@ export default function ResultScreen() {
         />
       ))}
       {finalLegs.every(l => l === null) && <Text style={styles.noRoutes}>Keine Routen verfügbar</Text>}
-      <TouchableOpacity style={styles.saveButton} onPress={onSave}>
-        <Icon name="save-outline" size={24} color="#fff" />
-      </TouchableOpacity>
     </ScrollView>
+      <TouchableOpacity style={styles.saveButton} onPress={onSave}>
+        <Icon name="save-outline" size={20} color="#fff" />
+        <Text style={styles.saveText}>Save</Text>
+      </TouchableOpacity>
+  </View>
   );
 }
 
@@ -463,4 +496,22 @@ const styles = StyleSheet.create({
   timeText: { fontSize: 12, color: '#6b7280' },
   durationText: { fontSize: 12, color: '#6b7280' },
   dateText: { position: 'absolute', top: 12, right: 12, fontSize: 12, color: '#4b5563' },
+  saveButton: {
+     position: 'absolute',
+     bottom: 20,
+     right: 20,
+     flexDirection: 'row',
+     alignItems: 'center',
+     backgroundColor: '#000',
+     paddingHorizontal: 16,
+     paddingVertical: 12,
+     borderRadius: 28,
+     elevation: 4,
+  },
+  saveText: {
+     color: '#fff',
+     fontSize: 16,
+     fontWeight: '500',
+     marginLeft: 8,
+  },
 });
