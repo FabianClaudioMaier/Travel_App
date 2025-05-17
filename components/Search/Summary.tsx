@@ -22,30 +22,28 @@ export default function Summary({
   modes,
 }: SummaryProps) {
 
-  const days =
-    Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
 
   return (
-    <View className="flex-1 p-4">
+    <View className="p-4">
       <Text className="text-2xl font-bold text-center mb-2">Your Journey:</Text>
 
       <View className="flex-row items-center mb-2 gap-2">
         <View className="w-10 h-6 items-center justify-center">
           <FontAwesome name="map-marker" size={20}/>
         </View>
-        <Text style={styles.text}>{cities.join(', ')}</Text>
+        <Text className="ml-2 text-lg font-bold">{cities.join(', ')}</Text>
       </View>
       <View className="flex-row items-center mb-2 gap-2">
         <View className="w-10 h-6 items-center justify-center">
           <FontAwesome name="user" size={20}/>
         </View>
-        <Text style={styles.text}>{numberOfAdults} Adults, {numberOfChildren} Children</Text>
+        <Text className="ml-2 text-lg font-bold">{numberOfAdults} Adults, {numberOfChildren} Children</Text>
       </View>
       <View className="flex-row items-center mb-2 gap-2">
         <View className="w-10 h-6 items-center justify-center">
           <FontAwesome name="calendar" size={20}/>
         </View>
-        <Text style={styles.text}>
+        <Text className="ml-2 text-lg font-bold">
           {startDate.toLocaleDateString('de-DE', { month: 'long', day: 'numeric', year: 'numeric' })} - {endDate.toLocaleDateString('de-DE', { month: 'long', day: 'numeric', year: 'numeric' })}
         </Text>
       </View>
@@ -53,21 +51,12 @@ export default function Summary({
         <View className="w-10 h-6 items-center justify-center">
           <FontAwesome name="money" size={20}/>
         </View>
-        <Text style={styles.text}>Max. € {maxPrice.toLocaleString()}</Text>
+        <Text className="ml-2 text-lg font-bold">Max. € {maxPrice.toLocaleString()}</Text>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  text: {
-    marginLeft: 8,
-    fontSize: 16,
-    fontWeight: '500',
-  },
+
 });

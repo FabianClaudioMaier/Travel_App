@@ -24,7 +24,7 @@ const PRICE_OPTIONS = [100, 200, 500, 1000, 2000];
 
 export default function MaximalPrice({ maxPrice, onChange }:MaximalPriceProps ) {
   return (
-    <View className="p-4 items-center">
+    <View className="p-4 items-center w-full">
       {/* Erläuterungstexte */}
       <Text className="text-base font-bold text-gray-500 text-center mb-2">
         The total price of the journey should not exceed this price*
@@ -47,8 +47,6 @@ export default function MaximalPrice({ maxPrice, onChange }:MaximalPriceProps ) 
           <FontAwesome name="plus" size={24} color="black" />
         </TouchableOpacity>
       </View>
-
-
 
       {/* Preset-Chips */}
       <ScrollView

@@ -1,8 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  Dimensions,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,7 +9,6 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import StepIndicator from 'react-native-step-indicator';
 
 // API Client
@@ -19,14 +16,12 @@ import { City, Region } from '@/interfaces/destinations';
 import api from '@/services/api';
 
 // Components
+import { FontAwesome } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import InputDatePicker from './InputDatePicker';
 import MaximalPrice from './MaximalPrice';
 import NumberOfPeople from './NumberOfPeople';
 import Summary from './Summary';
-import { FontAwesome } from '@expo/vector-icons';
-
-const { width, height } = Dimensions.get('window');
 
 const MODES = [
   { key: 'bus', label: 'Bus' },
@@ -69,11 +64,6 @@ export default function TripConfigurator() {
 
   // Stepper state
   const [step, setStep] = useState(0);
-
-  // Loading & origin
-  const [locationLoading, setLocationLoading] = useState(false);
-  const [startCity, setStartCity] = useState<string | null>(null);
-  const [originAirport, setOriginAirport] = useState<string | null>(null);
 
   // Data
   const [regions, setRegions] = useState<Region[]>([]);
@@ -125,12 +115,6 @@ export default function TripConfigurator() {
 
     setFilteredCities(filtered);
   }, [selectedRegionId, searchQuery, allCities]);
-
-  // Hilfsfunktion Airport finden (Interface: City.IATA)
-  const findAirport = (cityName: string) => {
-    const found = allCities.find(c => c.city_name === cityName);
-    return found?.IATA || 'VIE';
-  };
 
   useEffect(() => {
     fetchRegions();
@@ -186,8 +170,6 @@ export default function TripConfigurator() {
         params: {
           regionId: selectedRegionId,
           regionName: selectedCity?.city_name,
-          origin: startCity,
-          originAirport,
           cities: [selectedCity?.city_name ?? ''],
           citiesAirport: [selectedCity?.IATA ?? ''],
           modes: selectedModes,
@@ -206,7 +188,7 @@ export default function TripConfigurator() {
         return (
           <>
             <Text className="text-2xl font-bold text-center mb-2">Destination</Text>
-            <Text className="text-sm text-gray-500">Select a region</Text>
+            <Text className="text-base text-gray-500">Select a region</Text>
             <View className="border border-gray-200 rounded-md">
               <Picker
                 selectedValue={selectedRegionId}
@@ -223,9 +205,9 @@ export default function TripConfigurator() {
                 ))}
               </Picker>
             </View >
-            <Text className="text-md text-gray-500 mt-4">Select a city</Text>
+            <Text className="text-base text-gray-500 mt-4">Select a city</Text>
             <TextInput
-              className="border border-gray-200 rounded-md p-4"
+              className="text-base border border-gray-200 rounded-md p-4"
               placeholder="Choose a city..."
               value={searchQuery}
               onChangeText={text => {
@@ -250,7 +232,7 @@ export default function TripConfigurator() {
                         }}
                         className="border-b border-gray-200 p-4"
                       >
-                        <Text className="text-lg text-gray-500">{city.city_name}, {city.country}</Text>
+                        <Text className="text-base text-gray-500">{city.city_name}, {city.country}</Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -261,7 +243,7 @@ export default function TripConfigurator() {
         );
       case 1:
         return (
-          <View className="items-center p-4">
+          <View className="items-center">
             <Text className="text-2xl font-bold mb-2">Passengers</Text>
             <NumberOfPeople numberOfAdults={numberOfAdults} onChangeNumberOfAdults={setNumberOfAdults} numberOfChildren={numberOfChildren} onChangeNumberOfChildren={setNumberOfChildren} />
           </View>
@@ -269,7 +251,7 @@ export default function TripConfigurator() {
       case 2:
         return (
           <View className="items-center">
-            <Text className="text-2xl font-bold mt-4">Dates</Text>
+            <Text className="text-2xl font-bold">Dates</Text>
             <InputDatePicker
               startDate={startDate}
               endDate={endDate}
@@ -283,27 +265,32 @@ export default function TripConfigurator() {
           </View>
         );
       case 3:
-        return <MaximalPrice maxPrice={maxPrice} onChange={setMaxPrice} />;
+        return (
+          <View className="items-center">
+            <Text className="text-2xl font-bold mb-2">Budget</Text>
+            <MaximalPrice maxPrice={maxPrice} onChange={setMaxPrice} />
+          </View>
+        );
       case 4:
         return (
-          <View className="items-center p-4">
+          <View className="items-center">
             <Text className="text-2xl font-bold mb-2">Transport Modes</Text>
             <Text className="text-sm text-gray-500">Select the modes of transport you want to use</Text>
-            <View className="flex-row flex-wrap mt-4 justify-between items-center">
+            <View className="flex-row flex-wrap mt-4 justify-center items-center gap-2 w-full">
               {MODES.map(m => (
                 <TouchableOpacity
                   key={m.key}
-                  className="px-4 py-2 bg-white border-2 border-black rounded-full mr-2"
-                  style={{ backgroundColor: selectedModes.includes(m.key) ? 'black' : 'white' }}
-                  onPress={() => toggleMode(m.key)}>
-                  <View className="flex-row items-center">
+                  className={`px-4 py-2 bg-white border-2 border-black rounded-full ${selectedModes.includes(m.key) ? 'bg-black' : 'bg-white'}`}
+                  onPress={() => toggleMode(m.key)}
+                >
+                  <View className="flex-row items-center gap-2">
                     <FontAwesome
                       name={m.key === 'bus' ? 'bus' : m.key === 'train' ? 'train' : 'plane'}
-                      size={24}
+                      size={20}
                       color={selectedModes.includes(m.key) ? 'white' : 'black'}
                     />
                     <Text
-                      className="text-lg font-bold ml-2"
+                      className="text-base font-bold"
                       style={{ color: selectedModes.includes(m.key) ? 'white' : 'black' }}
                     >
                       {m.label}
@@ -332,219 +319,38 @@ export default function TripConfigurator() {
   };
 
   return (
-    <View style={styles.container}>
-      <KeyboardAwareScrollView style={styles.scrollArea} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" enableOnAndroid extraScrollHeight={Platform.OS === 'ios' ? 20 : 60}>
-        <StepIndicator customStyles={stepIndicatorStyles} currentPosition={step} labels={labels} stepCount={labels.length} />
-        <View style={styles.stepsContainer}>{renderContent()}</View>
-        <View style={styles.navContainer}>
-          {step > 0 && <Pressable style={styles.navButton} onPress={() => setStep(step - 1)}><Text style={styles.buttonText}>Back</Text></Pressable>}
-          <Pressable style={[styles.navButton, !canNext() && styles.buttonDisabled]} onPress={onNext} disabled={!canNext()}><Text style={styles.buttonText}>{step === labels.length - 1 ? 'Show Route' : step === 0 ? 'Start' : 'Next'}</Text></Pressable>
-        </View>
-      </KeyboardAwareScrollView>
+    <View className="bg-white p-4 rounded-lg w-full h-[60%]">
+      <StepIndicator customStyles={stepIndicatorStyles} currentPosition={step} labels={labels} stepCount={labels.length} />
+
+      <View style={styles.stepsContainer}>{renderContent()}</View>
+
+      <View className="flex-row justify-between mt-auto">
+        {step > 0 &&
+          <Pressable style={styles.navButton} onPress={() => setStep(step - 1)}>
+            <Text style={styles.buttonText}>Back</Text>
+          </Pressable>}
+        <Pressable style={[styles.navButton, !canNext() && styles.buttonDisabled]} onPress={onNext} disabled={!canNext()}>
+          <Text style={styles.buttonText}>{step === labels.length - 1 ? 'Show Route' : step === 0 ? 'Start' : 'Next'}</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: 'transparent',   // für den Root-View
-  },
-  scrollArea: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 8,
-    paddingTop: 16,
-    paddingBottom: 40,
-  },
-  backgroundSwiper: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: -1
-  },
-  slide: {
-    width,
-    height,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backgroundImage: {
-    height,
-    width,
-    alignSelf: 'center',
-  },
-  descriptionOverlay: {
-    position: 'absolute',
-    bottom: height * 0.2,
-    left: 16,
-    right: 16,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    borderRadius: 12,
-    padding: 12,
-  },
-  descriptionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  descriptionText: {
-    fontSize: 14,
-    color: '#fff',
-  },
-  stepText: {
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: "700",
-    fontFamily: "Inter-Bold",
-    color: "#000",
-    alignSelf: 'center',
-    overflow: "hidden",
-    width: 134,
-    height: 28,
-    opacity: 0.7
-  },
-  label: {
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: "700",
-    fontFamily: "Inter-Bold",
-    color: "#000",
-    textAlign: "left",
-    alignSelf: "center",
-    overflow: "hidden",
-    opacity: 0.7
-  },
-  modesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 8
-  },
-  modeItem: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    margin: 4
-  },
-  modeSelected: {
-    backgroundColor: '#aaa'
-  },
-  modeText: {
-    color: '#333'
-  },
-  modeTextSelected: {
-    color: '#fff'
-  },
-  dropdown: {
-    shadowColor: "rgba(0, 0, 0, 0.3)",
-    shadowOffset: {
-      width: 0,
-      height: 1
-    },
-    shadowRadius: 2,
-    elevation: 2,
-    shadowOpacity: 1,
-    borderRadius: 4,
-    backgroundColor: "#fff",
-    paddingHorizontal: 0,
-    width: "80%",
-    flex: 1
-  },
-  item: {
-    padding: 8,
-    fontSize: 16,
-    letterSpacing: 1,
-    lineHeight: 24,
-    fontFamily: "Roboto-Regular",
-    color: "#000",
-    textAlign: "left",
-    alignSelf: "stretch"
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4
-  },
-  addButton: {
-    margin: 4,
-    width: "18%",
-    backgroundColor: '#aaa',
-    padding: 12,
-    borderRadius: 4,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  addText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600'
-  },
-  stopsContainer: {
-    marginTop: 12,
-    flexDirection: 'row',
-    flexWrap: 'wrap'
-  },
-  stopItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderColor: '#000',
-    borderWidth: 1,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4,
-    margin: 4
-  },
-  stopText: {
-    marginRight: 6,
-    color: '#000'
-  },
-  removeText: {
-    color: '#000',
-    fontWeight: '600'
-  },
-  navContainer: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 24 },
+
+
   navButton: { backgroundColor: '#aaa', padding: 14, borderRadius: 6, alignItems: 'center', flex: 1, marginHorizontal: 4 },
   buttonDisabled: { backgroundColor: '#ccc', borderColor: '#aaa' },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  summaryContainer: { marginTop: 16, padding: 12, backgroundColor: '#f5f5f5', borderRadius: 6 },
-  summaryTitle: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
-  summaryItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  editButton: { paddingVertical: 4, paddingHorizontal: 8, borderWidth: 1, borderColor: '#007AFF', borderRadius: 4 },
-  editText: { color: '#007AFF', fontWeight: '600' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { marginTop: 12, fontSize: 16, color: '#666' },
+
   stepsContainer: {
     backgroundColor: 'rgba(255,255,255,0.8)',
     paddingHorizontal: 8,
     borderRadius: 10,
     paddingVertical: 8,
   },
-  padding: { paddingVertical: 10 },
-  scrollArea: {
-    flex: 1,
-    backgroundColor: 'transparent',  // damit der Swiper durchscheint
-  },
-  labelStepTitle: {
-    padding: 10,
-    fontSize: 26,
-    fontWeight: "1000",
-    fontFamily: "Inter-Bold",
-    color: "#000",
-    alignSelf: 'center'
-  },
-  labelSettingsBoxTitle: {
-    fontSize: 20,
-    lineHeight: 24,
-    fontWeight: "700",
-    fontFamily: "Inter-Bold",
-    color: "#000",
-    alignSelf: 'center',
-    overflow: "hidden",
-  },
+
   inputTextContainer: {
     borderRadius: 4,
     borderStyle: "solid",

@@ -8,7 +8,7 @@ const Search = () => {
       source={require('../../assets/images/greek-coast-sunshine.png')}
       style={styles.background}
     >
-      <View style={styles.container}>
+      <View className="flex-1 items-center justify-center p-4">
         <TripConfigurator />
       </View>
     </ImageBackground>
