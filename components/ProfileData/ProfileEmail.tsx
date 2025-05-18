@@ -43,7 +43,7 @@ const ProfileEmail = () => {
         style={styles.input}
         value={email}
         onChangeText={handleEmailChange}
-        placeholder="E-Mail-Adresse"
+        placeholder="E-Mail"
         placeholderTextColor="#999"
         keyboardType="email-address"
         autoCapitalize="none"

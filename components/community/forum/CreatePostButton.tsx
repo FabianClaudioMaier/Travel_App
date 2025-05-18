@@ -4,125 +4,153 @@ import { FontAwesome, FontAwesome5 } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useEffect, useState } from 'react';
+import React, {
+  forwardRef,
+  useImperativeHandle,
+  useState,
+  useEffect,
+  useLayoutEffect,
+} from 'react';
 import { Alert, Image, Modal, Platform, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-interface CreatePostButtonProps {
-    region_id: string;
-    onPostCreated?: () => void;
+export interface CreatePostButtonHandle {
+  openModal: () => void;
 }
 
-const CreatePostButton = ({ region_id, onPostCreated }: CreatePostButtonProps) => {
-    const [modalVisible, setModalVisible] = useState(false)
-    const [title, setTitle] = useState('')
-    const [date, setDate] = useState(new Date())
-    const [content, setContent] = useState('')
-    const [rating, setRating] = useState(0)
-    const [images, setImages] = useState<string[]>([])
-    const [errors, setErrors] = useState<any>({})
+interface CreatePostButtonProps {
+  region_id: string;
+  onPostCreated?: () => void;
+  autoOpen?: boolean;
+  initialCityId?: string;
+  initialDate?: string;
+}
 
-    const [showPicker, setShowPicker] = useState(false)
+const createPostButtonRender: React.ForwardRefRenderFunction<
+  CreatePostButtonHandle,
+  CreatePostButtonProps
+> = (
+  { region_id, onPostCreated, autoOpen, initialCityId, initialDate },
+  ref
+) => {
+    const [modalVisible, setModalVisible] = useState(false);
+    const [title, setTitle] = useState('');
+    const [date, setDate] = useState(new Date());
+    const [content, setContent] = useState('');
+    const [rating, setRating] = useState(0);
+    const [images, setImages] = useState<string[]>([]);
+    const [errors, setErrors] = useState<any>({});
 
-    const [cities, setCities] = useState<Cities>([])
-    const [selectedCity, setSelectedCity] = useState<string>('')
+    const [showPicker, setShowPicker] = useState(false);
+
+    const [cities, setCities] = useState<Cities>([]);
+    const [selectedCity, setSelectedCity] = useState<string>('');
 
     const fetchCities = async () => {
-        const cities = await api.destinations.getCitiesByRegion(region_id)
-        setCities(cities)
-    }
+      const citiesList = await api.destinations.getCitiesByRegion(region_id);
+      setCities(citiesList);
+    };
 
     useEffect(() => {
-        fetchCities()
-    }, [])
-    
+      fetchCities();
+    }, []);
+
+    // 1) auto-open, wenn die Prop gesetzt ist
+    useLayoutEffect(() => {
+      if (autoOpen) {
+        setModalVisible(true)
+      }
+    }, [autoOpen])
+
+    // 2) initialCityId in den Picker-State übernehmen
+    useEffect(() => {
+      if (initialCityId) {
+        setSelectedCity(initialCityId)
+      }
+    }, [initialCityId])
+
+    // 3) initialDate ins Date-Picker-State übernehmen
+    useEffect(() => {
+      if (initialDate) {
+        const d = new Date(initialDate)
+        if (!isNaN(d.getTime())) {
+          setDate(d)
+        }
+      }
+    }, [initialDate])
+
+    useImperativeHandle(ref, () => ({
+      openModal: () => setModalVisible(true),
+    }));
 
     const submitPost = async () => {
-        const newErrors: any = {};
+      const newErrors: any = {};
+      if (!title.trim()) newErrors.title = 'Title is required';
+      if (rating === 0) newErrors.rating = 'Rating is required';
+      if (!selectedCity) newErrors.city = 'City is required';
+      setErrors(newErrors);
+      if (Object.keys(newErrors).length > 0) return;
 
-        if (!title.trim()) {
-            newErrors.title = 'Title is required';
+      try {
+        let uploadedImageUrls: string[] = [];
+        if (images.length > 0) {
+          const imageUploadResult = await api.forum.uploadImages(images);
+          uploadedImageUrls = imageUploadResult.image_urls;
         }
 
-        if (rating === 0) {
-            newErrors.rating = 'Rating is required';
+        const data = {
+          region_id,
+          city_id: selectedCity,
+          title,
+          content,
+          rating,
+          date: date.toISOString(),
+          author: 'TEST USER',
+          images: uploadedImageUrls,
+        };
+
+        const res = await api.forum.createPost(data);
+        if (res.success) {
+          Alert.alert('Success', res.message);
+          cleanForm();
+          onPostCreated?.();
+        } else {
+          Alert.alert('Error', res.message);
         }
-
-        if (!selectedCity) {
-            newErrors.city = 'City is required';
-        }
-
-        setErrors(newErrors);
-
-        if (Object.keys(newErrors).length > 0) return;
-
-        try {
-            // First upload any images
-            let uploadedImageUrls: string[] = [];
-            if (images.length > 0) {
-                const imageUploadResult = await api.forum.uploadImages(images);
-                uploadedImageUrls = imageUploadResult.image_urls;
-            }
-
-            const data = {
-                region_id,
-                city_id: selectedCity,
-                title,
-                content,
-                rating,
-                date: date.toISOString(),
-                author: "TEST USER",
-                images: uploadedImageUrls,
-            }
-            console.log(data)
-
-            // Then create the post
-            const res = await api.forum.createPost(data);
-
-            if (res.success) {
-                Alert.alert('Success', res.message);
-                cleanForm();
-                onPostCreated?.();
-            } else {
-                Alert.alert('Error', res.message);
-            }
-        } catch (error) {
-            Alert.alert('Error', 'Failed to create post. Please try again.');
-        }
+      } catch (error) {
+        Alert.alert('Error', 'Failed to create post. Please try again.');
+      }
     };
 
     const cleanForm = () => {
-        setTitle('');
-        setContent('');
-        setRating(0);
-        setImages([]);
-        setErrors({});
-        setModalVisible(false);
-    }
+      setTitle('');
+      setContent('');
+      setRating(0);
+      setImages([]);
+      setErrors({});
+      setModalVisible(false);
+    };
 
     const pickImage = async () => {
-        if (images.length >= 3) {
-            Alert.alert('Limit Reached', 'You can only add up to 3 images.')
-            return
-        }
+      if (images.length >= 3) {
+        Alert.alert('Limit Reached', 'You can only add up to 3 images.');
+        return;
+      }
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'We need access to your media library.');
+        return;
+      }
 
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-        if (status !== 'granted') {
-            Alert.alert('Permission required', 'We need access to your media library.')
-            return
-        }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 1,
+      });
 
-        const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ['images'],
-            allowsEditing: false,
-            quality: 1,
-        })
-
-        if (!result.canceled && result.assets?.length > 0) {
-            setImages([...images, result.assets[0].uri])
-        }
-    }
-
-
+      if (!result.canceled && result.assets?.length) {
+        setImages((imgs) => [...imgs, result.assets[0].uri]);
+      }
+    };
 
     return (
         <>
@@ -329,7 +357,8 @@ const CreatePostButton = ({ region_id, onPostCreated }: CreatePostButtonProps) =
     )
 }
 
-export default CreatePostButton
+const CreatePostButton = forwardRef(createPostButtonRender);
+export default CreatePostButton;
 
 const styles = StyleSheet.create({
     floatingButton: {

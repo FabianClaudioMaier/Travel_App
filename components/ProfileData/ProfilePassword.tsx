@@ -42,7 +42,7 @@ const ChangePassword = () => {
         style={styles.input}
         value={password}
         onChangeText={handlePasswordChange}
-        placeholder="Passwort ändern"
+        placeholder="Change Password"
         placeholderTextColor="#999"
         secureTextEntry={true}
       />

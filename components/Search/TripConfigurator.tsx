@@ -192,22 +192,21 @@ export default function TripConfigurator() {
   const onNext = () => {
     if (step < labels.length - 1) return setStep(step + 1);
 
-    // Hier stellen wir sicher, dass origin gesetzt ist:
-    router.push({
-      pathname: '/result',
-      params: {
-        regionId: selectedRegionId!,
-        origin: startCity,
-        destination: startCity,
-        originAirport,
-        stops: stops.map(s => s.city_name).join(','),
-        stopsAirport: stops.map(s => s.IATA).join(','),
-        modes: selectedModes.join(','),
-        start_date: startDate.toISOString(),
-        end_date: endDate.toISOString(),
-        price: maxPrice.toString(),
-      }
-    });
+    const pushParams = {
+      regionId: selectedRegionId!,
+      origin: startCity,
+      destination: startCity,
+      originAirport,
+      stops: stops.map(s => s.city_name).join(','),
+      stopsAirport: stops.map(s => s.IATA).join(','),
+      modes: selectedModes.join(','),
+      start_date: startDate.toISOString(),
+      end_date: endDate.toISOString(),
+      price: maxPrice.toString(),
+    };
+
+    console.log('[TripConfigurator] Navigating to ResultScreen with params:', pushParams);
+    router.push({ pathname: '/result', params: pushParams });
   };
 
   // Render step content

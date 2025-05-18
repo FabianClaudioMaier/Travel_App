@@ -1,4 +1,3 @@
-// ResultScreen.tsx
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -18,33 +17,35 @@ import api from '../../services/api';
 import { Flight, TransitRoute } from '@/interfaces/routes';
 import { v4 as uuidv4 } from 'uuid';
 
-interface RouteInfo {
-  duration: number;
-  distanceMeters: number;
-  encodedPolyline: string;
-}
-
-interface Leg {
-  route: RouteInfo;
-  label: 'Bus' | 'Train' | 'Flight';
-}
-
-interface Params {
-  id?: string;
-  origin?: string;
-  originAirport?: string;
-  stops?: string;
-  stopsAirport?: string;
-  modes?: string;
-  start_date?: string;
-  end_date?: string;
-  price?: string;
-}
+// NEU: Import der Koordinaten
+const airportCoordinates: Record<string, { latitude: number; longitude: number }> = require('../../data/airportCoordinates.json');
 
 const { width, height } = Dimensions.get('window');
 
-// Decode polyline to coordinates
+// Haversine-Funktion zur Berechnung der Entfernung (km)
+function haversineDistance(a: LatLng, b: LatLng): number {
+  const R = 6371; // Erdradius in km
+  const dLat = (b.latitude - a.latitude) * Math.PI / 180;
+  const dLon = (b.longitude - a.longitude) * Math.PI / 180;
+  const lat1 = a.latitude * Math.PI / 180;
+  const lat2 = b.latitude * Math.PI / 180;
+  const aa = Math.sin(dLat/2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon/2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(aa), Math.sqrt(1 - aa));
+  return R * c;
+}
+
+// Decode polyline to coordinates (unterstützt nun auch JSON-Arrays)
 function decodePolyline(encoded: string): LatLng[] {
+  const trimmed = encoded.trim();
+  // NEU: JSON-codierte gerade Linie
+  if (trimmed.startsWith('[')) {
+    try {
+      return JSON.parse(trimmed) as LatLng[];
+    } catch {
+      // Fallback auf Standard
+    }
+  }
+
   const points: LatLng[] = [];
   let index = 0, lat = 0, lng = 0;
   while (index < encoded.length) {
@@ -83,12 +84,12 @@ function unwrapArray<T>(raw: any): T[] {
   return [];
 }
 
-// Fetch routes without logging
+// Fetch routes ohne Logging
 async function fetchLegMode(
   type: 'buses' | 'trains',
   from: string,
   to: string
-): Promise<RouteInfo[]> {
+): Promise<{ duration: number; distanceMeters: number; encodedPolyline: string }[]> {
   try {
     const raw = type === 'buses'
       ? await api.routes.getBusRoutes(from, to)
@@ -104,23 +105,23 @@ async function fetchLegMode(
   }
 }
 
+// NEU: Manuelle Berechnung der Flight-Legs
 async function fetchFlights(
   fromCode: string,
   toCode: string
-): Promise<RouteInfo[]> {
-  try {
-    const raw = await api.routes.getFlights(fromCode, toCode);
-    const flights: Flight[] = unwrapArray(raw);
-    return flights.map(f => ({
-      duration: f.path.reduce((s, seg) => s + seg.duration, 0)
-        + f.stops_duration.reduce((s, d) => s + d, 0)
-        + 3 * 3600,
-      distanceMeters: f.total_distance * 1000,
-      encodedPolyline: f.encoded_polyline,
-    }));
-  } catch {
-    return [];
-  }
+): Promise<{ duration: number; distanceMeters: number; encodedPolyline: string }[]> {
+  const coord1 = airportCoordinates[fromCode];
+  const coord2 = airportCoordinates[toCode];
+  if (!coord1 || !coord2) return [];
+  const distKm = haversineDistance(coord1, coord2);
+  const durationSec = distKm / 900 * 3600 + 3 * 3600;
+  // Gerade Linie zwischen den beiden Flughäfen
+  const encoded = JSON.stringify([coord1, coord2]);
+  return [{
+    duration: Math.round(durationSec),
+    distanceMeters: Math.round(distKm * 1000),
+    encodedPolyline: encoded,
+  }];
 }
 
 async function getBestLeg(
@@ -129,8 +130,11 @@ async function getBestLeg(
   fromAirport: string,
   toAirport: string,
   modes: string[]
-): Promise<Leg | null> {
-  type Candidate = { info: RouteInfo; mode: 'Bus' | 'Train' | 'Flight' };
+): Promise<{
+  route: { duration: number; distanceMeters: number; encodedPolyline: string };
+  label: 'Bus' | 'Train' | 'Flight';
+} | null> {
+  type Candidate = { info: { duration: number; distanceMeters: number; encodedPolyline: string }; mode: 'Bus' | 'Train' | 'Flight' };
   const candidates: Candidate[] = [];
 
   if (modes.includes('bus')) {
@@ -141,11 +145,7 @@ async function getBestLeg(
     const infos = await fetchLegMode('trains', fromName, toName);
     candidates.push(...infos.map(info => ({ info, mode: 'Train' })));
   }
-  if (
-    modes.includes('flight') &&
-    fromAirport &&
-    toAirport
-  ) {
+  if (modes.includes('flight') && fromAirport && toAirport) {
     const infos = await fetchFlights(fromAirport, toAirport);
     candidates.push(...infos.map(info => ({ info, mode: 'Flight' })));
   }
@@ -155,10 +155,7 @@ async function getBestLeg(
   const best = candidates.reduce((a, b) =>
     a.info.duration < b.info.duration ? a : b
   );
-  return {
-    route: best.info,
-    label: best.mode
-  };
+  return { route: best.info, label: best.mode };
 }
 
 function permute<T>(items: T[]): T[][] {
@@ -206,10 +203,9 @@ const LegCard: React.FC<LegCardProps> = ({ modes, duration, distanceMeters, orig
   );
 };
 
-// Main ResultScreen
 export default function ResultScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<Params>();
+  const params = useLocalSearchParams();
 
   const [loading, setLoading] = useState(true);
   const [origin, setOrigin] = useState('');
@@ -222,21 +218,25 @@ export default function ResultScreen() {
   const [endDate, setEndDate] = useState<Date>();
   const [priceLimit, setPriceLimit] = useState<number>(Infinity);
 
-  // Summary cards and polylines
   const [cards, setCards] = useState<LegCardProps[]>([]);
   const [polylineCoords, setPolylineCoords] = useState<LatLng[]>([]);
-  const [markerCoords, setMarkerCoords] = useState<{coordinate:LatLng, label:string}[]>([]);
+  const [markerCoords, setMarkerCoords] = useState<{ coordinate: LatLng; label: string }[]>([]);
 
+  // **Mit Logging:**
   useEffect(() => {
+    console.log('[ResultScreen] useEffect triggered with params:', params);
+
     (async () => {
-      // **Neu:** Spinner aktivieren, bevor mit dem Laden begonnen wird
+      console.log('[ResultScreen] Starting route computation');
       setLoading(true);
 
       // Load from storage or params
       if (params.id) {
+        console.log('[ResultScreen] Loading travel record from AsyncStorage for id', params.id);
         const json = await AsyncStorage.getItem('myTravels');
         const recs = json ? JSON.parse(json) : [];
-        const rec = recs.find((r:any) => r.id === params.id);
+        const rec = recs.find((r: any) => String(r.id) === String(params.id));
+        console.log('[ResultScreen] Found record:', rec);
         if (rec) {
           setOrigin(rec.origin);
           setDestination(rec.destination);
@@ -249,9 +249,9 @@ export default function ResultScreen() {
           setPriceLimit(rec.price || Infinity);
         }
       } else {
-        const o = params.origin!;
-        setOrigin(o);
-        setDestination(o);
+        console.log('[ResultScreen] Using params directly');
+        setOrigin(params.origin!);
+        setDestination(params.origin!);
         setOriginAirport(params.originAirport || '');
         setStops(params.stops?.split(',') || []);
         setStopsAirport(params.stopsAirport?.split(',') || []);
@@ -261,93 +261,137 @@ export default function ResultScreen() {
         setPriceLimit(params.price ? Number(params.price) : Infinity);
       }
 
-      // Compute best route
+      console.log('[ResultScreen] State values before permutation:', { origin, stops, destination, modes });
       const perms = permute(stops);
-      let bestOverall: { legs: (Leg|null)[]; time: number; price: number } | null = null;
+
+      let bestOverall: any = null;
       for (const perm of perms) {
         const seqCities = [origin, ...perm, destination];
-        const seqAirports = [
-          originAirport,
-          ...perm.map((_,i) => stopsAirport[i] || ''),
-          params.destinationAirport || ''
-        ];
-        let sumTime = 0, sumPrice = 0;
-        const legs: (Leg|null)[] = [];
-        for (let i=0; i<seqCities.length-1; i++) {
-          const leg = await getBestLeg(
-            seqCities[i], seqCities[i+1],
-            seqAirports[i], seqAirports[i+1],
+        const seqAirports = [originAirport, ...perm.map((_, i) => stopsAirport[i] || ''), originAirport];
+        let sumTime = 0;
+        const legs: any[] = [];
+
+        for (let i = 0; i < seqCities.length - 1; i++) {
+          console.log(
+            `[ResultScreen] Fetching best leg from ${seqCities[i]} to ${seqCities[i + 1]} with modes`,
             modes
           );
-          if (!leg) { sumTime = Infinity; break; }
+          const leg = await getBestLeg(
+            seqCities[i],
+            seqCities[i + 1],
+            seqAirports[i],
+            seqAirports[i + 1],
+            modes
+          );
+          if (!leg) {
+            sumTime = Infinity;
+            break;
+          }
           sumTime += leg.route.duration;
-          sumPrice += (leg.label==='Flight' ? 0 : 0);
           legs.push(leg);
         }
-        if (sumTime===Infinity) continue;
-        if (!bestOverall ||
-            (sumTime<bestOverall.time)
-        ) {
-          bestOverall = { legs, time: sumTime, price: sumPrice };
+
+        if (sumTime === Infinity) {
+          console.log('[ResultScreen] Skipping permutation due to missing leg');
+          continue;
+        }
+
+        if (!bestOverall || sumTime < bestOverall.time) {
+          bestOverall = { legs, time: sumTime };
+          console.log('[ResultScreen] New best route found:', bestOverall);
         }
       }
 
       if (bestOverall) {
-        // Build cards
-        const cardData = bestOverall.legs
-          .filter((l): l is Leg => !!l)
-          .map((leg, i) => ({
-            modes: leg.label,
-            duration: leg.route.duration,
-            distanceMeters: leg.route.distanceMeters,
-            originCity: i>0 ? (stops[i-1]||origin) : origin,
-            destCity: i<stops.length ? stops[i] : destination,
-            date: startDate?.toLocaleDateString(),
-          }));
+        console.log('[ResultScreen] Best overall result:', bestOverall);
+        const cardData = bestOverall.legs.map((leg: any, i: number) => ({
+          modes: leg.label,
+          duration: leg.route.duration,
+          distanceMeters: leg.route.distanceMeters,
+          originCity: i > 0 ? (stops[i - 1] || origin) : origin,
+          destCity: i < stops.length ? stops[i] : destination,
+          date: startDate?.toLocaleDateString(),
+        }));
         setCards(cardData);
 
-        // Build polyline coords and markers
-        const coords = bestOverall.legs
-          .filter((l): l is Leg => !!l)
-          .flatMap(leg => decodePolyline(leg.route.encodedPolyline));
+        // Build polyline and markers
+        const coords: LatLng[] = [];
+        const markers: any[] = [];
+        const seqAirports = [originAirport, ...stopsAirport, params.destinationAirport || ''];
+
+        bestOverall.legs.forEach((leg: any, idx: number) => {
+          if (leg.label === 'Flight') {
+            const [c1, c2] = JSON.parse(leg.route.encodedPolyline);
+            coords.push(c1, c2);
+            markers.push(
+              { coordinate: c1, label: idx === 0 ? 'Origin' : `Stop ${idx}` },
+              { coordinate: c2, label: idx === bestOverall.legs.length - 1 ? 'Destination' : `Stop ${idx + 1}` }
+            );
+          } else {
+            const segment = decodePolyline(leg.route.encodedPolyline);
+            coords.push(...segment);
+            markers.push(
+              { coordinate: segment[0], label: idx === 0 ? 'Origin' : `Stop ${idx}` },
+              { coordinate: segment[segment.length - 1], label: idx === bestOverall.legs.length - 1 ? 'Destination' : `Stop ${idx + 1}` }
+            );
+          }
+        });
+
         setPolylineCoords(coords);
-        const markers = coords.length
-          ? [
-              { coordinate: coords[0], label: 'Origin' },
-              ...bestOverall.legs
-                .filter((l): l is Leg => !!l)
-                .slice(0, -1)
-                .map((leg,i) => {
-                  const pts = decodePolyline(leg.route.encodedPolyline);
-                  return { coordinate: pts[pts.length-1], label: `Stop ${i+1}` };
-                }),
-              { coordinate: coords[coords.length-1], label: 'Destination' }
-            ]
-          : [];
         setMarkerCoords(markers);
       }
 
-      // **Neu:** Spinner ausblenden, wenn alles fertig ist
       setLoading(false);
-    })();
+      console.log('[ResultScreen] Finished route computation');
+    })().catch(e => {
+      console.error('[ResultScreen] Error during async route computation:', e);
+      setLoading(false);
+    });
   }, [
     params.id,
-    params.origin,
-    params.stops,
     params.start_date,
     params.end_date,
+    params.stops,
+    params.origin,
     params.price,
   ]);
 
-  // **immer** Spinner anzeigen, solange loading === true
+
   if (loading) {
     return (
       <View style={styles.loaderContainer}>
-        <Text> Wart kurz </Text>
+        <Text>loading route</Text>
         <ActivityIndicator size="large" />
       </View>
     );
   }
+
+  const getInitialRegion = (): undefined | {
+    latitude: number;
+    longitude: number;
+    latitudeDelta: number;
+    longitudeDelta: number;
+  } => {
+    if (!polylineCoords.length) return undefined;
+
+    const lats = polylineCoords.map(c => c.latitude);
+    const lons = polylineCoords.map(c => c.longitude);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLon = Math.min(...lons);
+    const maxLon = Math.max(...lons);
+    const midLat = (minLat + maxLat) / 2;
+    const midLon = (minLon + maxLon) / 2;
+    const latDelta = Math.max(0.05, (maxLat - minLat) * 1.2);
+    const lonDelta = Math.max(0.05, (maxLon - minLon) * 1.2);
+
+    return {
+      latitude: midLat,
+      longitude: midLon,
+      latitudeDelta: latDelta,
+      longitudeDelta: lonDelta,
+    };
+  };
 
   return (
     <View style={styles.container}>
@@ -355,16 +399,11 @@ export default function ResultScreen() {
         {polylineCoords.length > 0 && (
           <MapView
             style={styles.overallMap}
-            initialRegion={{
-              latitude: polylineCoords[Math.floor(polylineCoords.length/2)].latitude,
-              longitude: polylineCoords[Math.floor(polylineCoords.length/2)].longitude,
-              latitudeDelta: 0.1,
-              longitudeDelta: 0.1,
-            }}
+            initialRegion={getInitialRegion()}
           >
-            <Polyline coordinates={polylineCoords} strokeWidth={4} />
+            <Polyline coordinates={polylineCoords} strokeWidth={2} strokeColor={'blue'} />
             {markerCoords.map((m, i) => (
-              <Marker key={i} coordinate={m.coordinate} />
+              <Marker key={i} coordinate={m.coordinate}/>
             ))}
           </MapView>
         )}
@@ -422,8 +461,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  header: { fontSize: 20, fontWeight: 'bold', marginBottom: 10 },
-  summaryContainer: { marginBottom: 10 },
   overallMap: {
     height: width * 0.8,
     borderRadius: 10,
@@ -469,3 +506,4 @@ const styles = StyleSheet.create({
   },
   saveText: { color: '#fff', fontSize: 16, fontWeight: '500', marginLeft: 8 },
 });
+

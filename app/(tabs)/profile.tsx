@@ -1,14 +1,6 @@
+/* ProfileScreen.tsx (angepasst) */
 import React, { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  StyleSheet,
-  TouchableOpacity,
-  ListRenderItemInfo,
-  ScrollView,
-  Dimensions
-} from 'react-native';
+import { View, Text, FlatList, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import ProfileImage from '@/components/ProfileData/ProfileImage';
@@ -19,19 +11,7 @@ import ProfileHometown from '@/components/ProfileData/ProfileHometown';
 import ProfileAnonymousmode from '@/components/ProfileData/ProfileAnonymousmode';
 import ProfileServices from '@/components/ProfileData/ProfileServices';
 import ProfileTransportation from '@/components/ProfileData/ProfileTransportation';
-
-interface TravelRecord {
-  id: string;
-  origin: string;
-  stops: string[];
-  destination: string;
-  modes?: string[];
-  start_date?: string;
-  end_date?: string;
-  price?: number;
-}
-
-const { width, height } = Dimensions.get('window');
+import TravelCard, { TravelRecord } from '@/components/ProfileData/TravelCard';
 
 export default function ProfileScreen() {
   const [travels, setTravels] = useState<TravelRecord[]>([]);
@@ -49,40 +29,21 @@ export default function ProfileScreen() {
     })();
   }, []);
 
-  const renderItem = ({ item }: ListRenderItemInfo<TravelRecord>) => {
-
-      if (!item.start_date || !item.end_date) {
-        return null;
-      }
-
-    const title = [item.origin, ...item.stops, item.destination].join(' → ');
-    const startDate = new Date(item.start_date);
-    const endDate = new Date(item.end_date);
-
+  const renderItem = ({ item }: { item: TravelRecord }) => {
+    if (!item.start_date || !item.end_date) return null;
     return (
-      <TouchableOpacity
-        style={styles.card}
-        onPress={() =>
-          router.push({
-            pathname: '/result',
-            params: { id: item.id },
-          })
-        }
-      >
-        <Text style={styles.title}>{title}</Text>
-        <Text>{`Reisedaten: ${startDate.toLocaleDateString()} – ${endDate.toLocaleDateString()}`}</Text>
-      </TouchableOpacity>
+      <TravelCard
+        item={item}
+      />
     );
   };
 
   return (
     <FlatList
       data={travels}
-      keyExtractor={item => item.id}
+      keyExtractor={(item) => item.id}
       renderItem={renderItem}
-      ListEmptyComponent={
-          <Text style={styles.empty}>No saved travels yet.</Text>
-      }
+      ListEmptyComponent={<Text style={styles.empty}>No saved travels yet.</Text>}
       ListHeaderComponent={() => (
         <View style={styles.headerWrapper}>
           <Text style={styles.header}>My Profile</Text>
@@ -97,29 +58,18 @@ export default function ProfileScreen() {
           <Text style={styles.header}>My Travels</Text>
         </View>
       )}
-      contentContainerStyle={
-        travels.length === 0 ? styles.container : undefined
-      }
+      contentContainerStyle={travels.length === 0 ? styles.container : undefined}
     />
   );
 }
 
 const styles = StyleSheet.create({
-  container: {padding: 10, margin: 20, backgroundColor: '#000', width: '80%' },
-  header: { fontSize: 24, fontWeight: 'bold', marginBottom: 10, textAlign:'center' },
-  card: {
-    padding: 12,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
-    marginBottom: 8,
-    elevation: 1,
-  },
-  title: { fontSize: 16, fontWeight: '600', marginBottom: 4 },
-  meta: { fontSize: 14, color: '#555' },
+  container: { padding: 10, margin: 20, backgroundColor: '#000', width: '80%' },
+  header: { fontSize: 24, fontWeight: 'bold', marginBottom: 10, textAlign: 'center' },
   empty: { textAlign: 'center', marginTop: 20, fontSize: 16, color: '#888' },
   headerWrapper: {
     width: '90%',
-    alignSelf: 'center', // zentriert horizontal
+    alignSelf: 'center',
     paddingVertical: 16,
   },
 });

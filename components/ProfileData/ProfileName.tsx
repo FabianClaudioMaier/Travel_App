@@ -44,7 +44,7 @@ const ProfileName = () => {
         style={styles.input}
         value={name}
         onChangeText={handleNameChange}
-        placeholder="Dein Name"
+        placeholder="Your Name"
         placeholderTextColor="#999"
       />
       <View style={styles.iconContainer}>

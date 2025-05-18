@@ -3,13 +3,14 @@ import PostCard from '@/components/community/forum/PostCard'
 import { Region, Cities } from '@/interfaces/destinations'
 import { Posts } from '@/interfaces/forum'
 import api from '@/services/api'
-import { useLocalSearchParams } from 'expo-router'
-import { useEffect, useState } from 'react'
+import { useFocusEffect, useLocalSearchParams } from 'expo-router'
+import React, { useEffect, useState, useRef } from 'react';
 import { FlatList, Text, View } from 'react-native'
 import { Picker } from '@react-native-picker/picker'
 
 const RegionForum = () => {
-  const { region_id } = useLocalSearchParams()
+  const { region_id, autoOpen, city_id, visitDate } = useLocalSearchParams();
+  const createPostRef = useRef<CreatePostButtonHandle>(null);
 
   const [region, setRegion] = useState<Region>()
   const [cities, setCities] = useState<Cities>([])
@@ -87,7 +88,14 @@ const RegionForum = () => {
         />
       </View>
 
-      <CreatePostButton region_id={region_id as string} onPostCreated={fetchPosts} />
+      <CreatePostButton
+        ref={createPostRef}
+        region_id={region_id as string}
+        onPostCreated={fetchPosts}
+        autoOpen={autoOpen === 'true'}
+        initialCityId={city_id as string}
+        initialDate={visitDate as string}
+      />
     </View>
   )
 }
