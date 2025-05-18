@@ -1,6 +1,6 @@
 import { Cities, City, Region, Regions } from '@/interfaces/destinations';
 import { Posts } from '@/interfaces/forum';
-import { PlaneRoutes, BusRoutes, TrainRoutes } from '@/interfaces/routes';
+import { PlaneRoutes, BusRoutes, TrainRoutes, Routes } from '@/interfaces/routes';
 import axios from 'axios';
 
 const BASE_URL = 'https://hci-backend-541730464130.europe-central2.run.app';
@@ -74,6 +74,22 @@ const api = {
         }
     },
   routes: {
+    getRoutes: async (origin: string, destination: string): Promise<Routes> => {
+      try {
+        const response = await axios.get<Routes>(`${BASE_URL}/routes`, {
+          params: {
+            origin,
+            destination
+          }
+        });
+        return response.data;
+      } catch (error) {
+        if (axios.isAxiosError(error)) {
+          throw new Error(`Failed to fetch routes: ${error.message}`);
+        }
+        throw error;
+      }
+    },
     getFlights: async (origin: string, destination: string): Promise<PlaneRoutes> => {
       try {
         const response = await axios.get<PlaneRoutes>(`${BASE_URL}/routes/flights`, {
