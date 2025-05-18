@@ -1,6 +1,6 @@
-import { ImageBackground, StyleSheet, Text, View } from 'react-native'
+import TripConfigurator from '@/components/Search/TripConfigurator'
 import React from 'react'
-import TripConfigurator from '@/components/TripConfigurator'
+import { ImageBackground, StyleSheet, View } from 'react-native'
 
 const Search = () => {
   return (
@@ -8,7 +8,7 @@ const Search = () => {
       source={require('../../assets/images/greek-coast-sunshine.png')}
       style={styles.background}
     >
-      <View style={styles.container}>
+      <View className="flex-1 items-center justify-center p-4">
         <TripConfigurator />
       </View>
     </ImageBackground>

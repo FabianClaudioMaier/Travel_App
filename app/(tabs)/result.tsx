@@ -7,6 +7,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  Pressable,
   Alert,
 } from 'react-native';
 import MapView, { Polyline, Marker, LatLng } from 'react-native-maps';
@@ -31,15 +32,15 @@ interface Leg {
 }
 
 interface Params {
-  id?: string;             // neu: wenn aus ProfileScreen
-  origin?: string;         // wenn aus SearchScreen
+  id?: string;
+  origin: string;
+  stops?: string;
+  modes?: string;
   originAirport?: string;
-  stops?: string;          // CSV
-  stopsAirport?: string;   // CSV
-  modes?: string;          // CSV
+  stopsAirport?: string;
+  price?: string;
   start_date?: string;
   end_date?: string;
-  price?: string;
 }
 
 const { width, height } = Dimensions.get('window');
@@ -189,13 +190,17 @@ const LegCard: React.FC<LegCardProps> = ({ leg, originCity, destCity, date }) =>
   const { label, route } = leg;
   const hours = Math.floor(route.duration / 3600);
   const mins = Math.floor((route.duration % 3600) / 60);
-  // Zufallsstunde zwischen 0 und 23
-  const hoursStart: number = Math.floor(Math.random() * 24);
-  // Zufallsminute zwischen 0 und 59
-  const minsStart: number = Math.floor(Math.random() * 60);
-  const timeStart = (hoursStart < 10 ? '0' : '') + hoursStart + ":" + (minsStart < 10 ? '0' : '') + minsStart;
-  const overflowHour = (minsStart + mins) > 60 ? 1 : 0;
-  const timeEnd = (((hoursStart+hours+overflowHour) % 24) < 10 ? '0' : '') + ((hoursStart+hours+overflowHour) % 24) + ":" + (((minsStart + mins) % 60) < 10 ? '0' : '') + ((minsStart + mins) % 60);
+  const hoursStart = Math.floor(Math.random() * 24);
+  const minsStart = Math.floor(Math.random() * 60);
+  const timeStart =
+    (hoursStart < 10 ? '0' : '') + hoursStart + ':' + (minsStart < 10 ? '0' : '') + minsStart;
+  const overflowHour = minsStart + mins > 59 ? 1 : 0;
+  const timeEnd =
+    ((hoursStart + hours + overflowHour) % 24 < 10 ? '0' : '') +
+    ((hoursStart + hours + overflowHour) % 24) +
+    ':' +
+    (((minsStart + mins) % 60) < 10 ? '0' : '') +
+    ((minsStart + mins) % 60);
 
   // Flight-specific data
   const airline = route.raw?.path?.[0]?.airline ?? '';
@@ -223,13 +228,21 @@ const LegCard: React.FC<LegCardProps> = ({ leg, originCity, destCity, date }) =>
       <View style={styles.divider} />
       <View style={styles.timelineRow}>
         <View style={styles.timeBlock}>
-          <Text style={styles.timeText}>{route.raw?.path?.[0]?.departureTime ?? timeStart}</Text>
+          <Text style={styles.timeText}>
+            {route.raw?.path?.[0]?.departureTime ?? timeStart}
+          </Text>
         </View>
         <Icon name="arrow-forward-outline" size={16} />
         <Text style={styles.durationText}>{`${hours}h ${mins}m`}</Text>
-        <Icon name="arrow-forward-outline" size={16} style={{ transform: [{ rotate: '180deg' }] }} />
+        <Icon
+          name="arrow-forward-outline"
+          size={16}
+          style={{ transform: [{ rotate: '180deg' }] }}
+        />
         <View style={styles.timeBlock}>
-          <Text style={styles.timeText}>{route.raw?.path?.slice(-1)[0]?.arrivalTime ?? timeEnd}</Text>
+          <Text style={styles.timeText}>
+            {route.raw?.path?.slice(-1)[0]?.arrivalTime ?? timeEnd}
+          </Text>
         </View>
       </View>
       {date && <Text style={styles.dateText}>{date}</Text>}
@@ -240,21 +253,33 @@ const LegCard: React.FC<LegCardProps> = ({ leg, originCity, destCity, date }) =>
 export default function ResultScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<Params>();
+
+  // Log all incoming params
+  console.log('🏁 ResultScreen params:', params);
+
+  // Parse params
+  const origin = params.origin!;
+  const destination = params.destination ?? origin;
+  const originAirport = params.originAirport ?? '';
+  const destinationAirport = params.originAirport ?? '';
+
+  const rawStops = params.stops;
+  const stops: string[] = rawStops ? rawStops.split(',') : [];
+
+  const rawStopsAirport = params.stopsAirport;
+  const stopsAirport: string[] = rawStopsAirport ? rawStopsAirport.split(',') : [];
+
+  const priceLimit = params.price ? Number(params.price) : Infinity;
+  const modes = params.modes?.split(',') ?? [];
+  const rawStart = params.start_date;
+  const rawEnd = params.end_date;
+  const startDate = rawStart ? new Date(rawStart) : undefined;
+  const endDate = rawEnd ? new Date(rawEnd) : undefined;
+
+  const [finalLegs, setFinalLegs] = useState<(Leg & { date?: string })[]>([]);
   const [loading, setLoading] = useState(true);
-  const [origin, setOrigin] = useState('');
-  const [destination, setDestination] = useState('');
-  const [originAirport, setOriginAirport] = useState('');
-  const [destinationAirport, setDestinationAirport] = useState('');
-  const [stops, setStops] = useState<string[]>([]);
-  const [stopsAirport, setStopsAirport] = useState<string[]>([]);
-  const [modes, setModes] = useState<string[]>([]);
-  const [rawStart, setRawStart] = useState<string|undefined>(undefined);
-  const [rawEnd, setRawEnd]     = useState<string|undefined>(undefined);
-  const [startDate, setStartDate]   = useState<Date|undefined>(undefined);
-  const [endDate, setEndDate]       = useState<Date|undefined>(undefined);
-  const [priceLimit, setPriceLimit] = useState<number>(Infinity);
-  const [finalLegs, setFinalLegs] = useState<(Leg|null)[]>([]);
   const [cards, setCards]         = useState<LegCardProps[]>([]);
+
 
   useEffect(() => {
     (async () => {
@@ -322,17 +347,27 @@ export default function ResultScreen() {
           const legs: (Leg|null)[] = [];
           for (let i = 0; i < seqCities.length - 1; i++) {
             const leg = await getBestLeg(
-              seqCities[i], seqCities[i+1],
-              seqAirports[i], seqAirports[i+1],
-              m
+              seqCities[i],
+              seqCities[i + 1],
+              seqAirports[i],
+              seqAirports[i + 1],
+              modes
             );
-            if (!leg) { sumTime = Infinity; break; }
+            console.log('  ↳ leg result:', leg);
+            if (!leg) {
+              sumTime = Infinity;
+              break;
+            }
             sumTime += leg.route.duration;
-            sumPrice += (leg.label === 'Flight' ? leg.route.raw.price : 0);
+            sumPrice += leg.route.distanceMeters * 0.0 + (leg.label === 'Flight' ? leg.route.raw.price : 0);
             legs.push(leg);
           }
           if (sumTime === Infinity) continue;
-          if (!bestOverall || (sumPrice <= pl && sumTime < bestOverall.time) || (bestOverall.price > pl && sumPrice < bestOverall.price)) {
+          if (sumPrice <= priceLimit) {
+            if (!bestOverall || sumTime < bestOverall.time) {
+              bestOverall = { legs, time: sumTime, price: sumPrice };
+            }
+          } else if (!bestOverall || (bestOverall.price > priceLimit && sumPrice < bestOverall.price)) {
             bestOverall = { legs, time: sumTime, price: sumPrice };
           }
         }
@@ -474,9 +509,14 @@ const styles = StyleSheet.create({
   loader: { flex: 1, justifyContent: 'center' },
   header: { fontSize: 20, fontWeight: 'bold', marginBottom: 10 },
   summaryContainer: { marginBottom: 10 },
-  overallMap: { height: width*0.8, borderRadius: 10, marginBottom: 10,     borderStyle: "solid",
-                                                                          borderColor: "#000",
-                                                                          borderWidth: 2, },
+  overallMap: {
+    height: width * 0.8,
+    borderRadius: 10,
+    marginBottom: 10,
+    borderStyle: 'solid',
+    borderColor: '#000',
+    borderWidth: 2,
+  },
   cardContainer: {
     backgroundColor: '#fff',
     borderRadius: 8,
@@ -496,6 +536,7 @@ const styles = StyleSheet.create({
   timeText: { fontSize: 12, color: '#6b7280' },
   durationText: { fontSize: 12, color: '#6b7280' },
   dateText: { position: 'absolute', top: 12, right: 12, fontSize: 12, color: '#4b5563' },
+  noRoutes: { textAlign: 'center', marginTop: 20, fontSize: 16 },
   saveButton: {
      position: 'absolute',
      bottom: 20,
