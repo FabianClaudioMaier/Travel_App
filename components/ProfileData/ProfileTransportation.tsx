@@ -78,11 +78,10 @@ const TransportationSelector = () => {
 const styles = StyleSheet.create({
   container: {
     width: "100%",
-    paddingVertical: 10,
     paddingHorizontal: 10,
   },
   title: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "500",
     fontFamily: "Inter-Medium",
     color: "#1a1a1a",

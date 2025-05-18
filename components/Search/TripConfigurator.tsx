@@ -216,7 +216,6 @@ export default function TripConfigurator() {
       case 0:
         return (
           <>
-            <Text className="text-2xl font-bold mb-2">Destination</Text>
             <Text className="text-base text-gray-500">Select a region</Text>
             <View className="border border-gray-200 rounded-md">
               <Picker
@@ -382,7 +381,7 @@ export default function TripConfigurator() {
   };
 
   return (
-    <View className="bg-white p-4 rounded-lg w-full h-[70%]">
+    <View className="bg-white p-4 rounded-lg w-full">
       <StepIndicator
         customStyles={stepIndicatorStyles}
         currentPosition={step}
@@ -442,7 +441,6 @@ const styles = StyleSheet.create({
     borderColor: "#000",
     borderWidth: 1,
     width: "100%",
-
     alignSelf: "stretch"
   },
   inputText: {

@@ -1,6 +1,8 @@
 // components/ProfileImage.tsx
 import React from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View, Dimensions } from 'react-native';
+
+const { width, height } = Dimensions.get('window');
 
 const ProfileImage = () => {
   return (
@@ -20,11 +22,11 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   image: {
-    width: 148,
-    height: 148,
-    borderRadius: 74,
+    width: width*0.5,
+    height: width*0.5,
+    borderRadius: width*0.25,
     borderWidth: 2,
-    borderColor: '#ccc',
+    borderColor: '#000',
   },
 });
 

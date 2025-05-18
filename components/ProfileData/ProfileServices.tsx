@@ -76,7 +76,6 @@ const styles = StyleSheet.create({
   container: {
     width: "100%",
     paddingHorizontal: 16,
-    paddingVertical: 8,
   },
   header: {
     fontSize: 16,

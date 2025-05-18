@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ListRenderItemInfo,
   ScrollView,
+  Dimensions
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
@@ -19,27 +20,22 @@ import ProfileAnonymousmode from '@/components/ProfileData/ProfileAnonymousmode'
 import ProfileServices from '@/components/ProfileData/ProfileServices';
 import ProfileTransportation from '@/components/ProfileData/ProfileTransportation';
 
-
 interface TravelRecord {
-  id: string;               // neu
+  id: string;
   origin: string;
-  originAirport?: string;
   stops: string[];
-  stopsAirport?: string[];
   destination: string;
-  destinationAirport?: string;
   modes?: string[];
   start_date?: string;
   end_date?: string;
-  legs?: any[];             // oder deine konkrete Legs-Typen
+  price?: number;
 }
 
-
+const { width, height } = Dimensions.get('window');
 
 export default function ProfileScreen() {
   const [travels, setTravels] = useState<TravelRecord[]>([]);
   const router = useRouter();
-
 
   useEffect(() => {
     (async () => {
@@ -51,40 +47,17 @@ export default function ProfileScreen() {
         console.warn('Failed to load travels', e);
       }
     })();
-  });
+  }, []);
 
   const renderItem = ({ item }: ListRenderItemInfo<TravelRecord>) => {
-    const {
-      origin,
-      stops,
-      destination,
-      label,
-      durationSec,
-      distanceKm,
-      duration,
-      distance,
-      route,
-      modes,
-      start_date,
-      end_date,
-    } = item;
 
-    const dur =
-      typeof durationSec === 'number'
-        ? durationSec
-        : typeof duration === 'number'
-        ? duration
-        : 0;
-    const dist =
-      typeof distanceKm === 'number'
-        ? distanceKm
-        : typeof distance === 'number'
-        ? distance
-        : route && typeof route.distanceMeters === 'number'
-        ? route.distanceMeters / 1000
-        : 0;
+      if (!item.start_date || !item.end_date) {
+        return null;
+      }
 
-    const title = [origin, ...stops, destination].join(' → ');
+    const title = [item.origin, ...item.stops, item.destination].join(' → ');
+    const startDate = new Date(item.start_date);
+    const endDate = new Date(item.end_date);
 
     return (
       <TouchableOpacity
@@ -92,51 +65,48 @@ export default function ProfileScreen() {
         onPress={() =>
           router.push({
             pathname: '/result',
-            params: { id: item.id },   // nur noch die ID
+            params: { id: item.id },
           })
         }
       >
         <Text style={styles.title}>{title}</Text>
-        <Text style={styles.meta}>
-          {label}: {Math.floor(dur / 3600)}h {Math.floor((dur % 3600) / 60)}m, {dist.toFixed(1)} km
-        </Text>
+        <Text>{`Reisedaten: ${startDate.toLocaleDateString()} – ${endDate.toLocaleDateString()}`}</Text>
       </TouchableOpacity>
     );
   };
 
   return (
-      <FlatList
-        data={travels}
-        keyExtractor={(_, idx) => idx.toString()}
-        renderItem={renderItem}
-        ListEmptyComponent={
+    <FlatList
+      data={travels}
+      keyExtractor={item => item.id}
+      renderItem={renderItem}
+      ListEmptyComponent={
           <Text style={styles.empty}>No saved travels yet.</Text>
-        }
-        // Profile-Bausteine oben als Header:
-        ListHeaderComponent={
-          <>
-            <Text style={styles.header}>MyTravels</Text>
-            <ProfileImage />
-            <ProfileName />
-            <ProfileEmail />
-            <ProfilePassword />
-            <ProfileHometown />
-            <ProfileAnonymousmode />
-            <ProfileServices />
-            <ProfileTransportation />
-          </>
-        }
-        // Wenn leer, damit Header trotzdem Padding hat:
-        contentContainerStyle={
-          travels.length === 0 ? styles.container : undefined
-        }
-      />
-    );
+      }
+      ListHeaderComponent={() => (
+        <View style={styles.headerWrapper}>
+          <Text style={styles.header}>My Profile</Text>
+          <ProfileImage />
+          <ProfileName />
+          <ProfileEmail />
+          <ProfilePassword />
+          <ProfileHometown />
+          <ProfileAnonymousmode />
+          <ProfileServices />
+          <ProfileTransportation />
+          <Text style={styles.header}>My Travels</Text>
+        </View>
+      )}
+      contentContainerStyle={
+        travels.length === 0 ? styles.container : undefined
+      }
+    />
+  );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 10, backgroundColor: '#fff' },
-  header: { fontSize: 24, fontWeight: 'bold', marginBottom: 10 },
+  container: {padding: 10, margin: 20, backgroundColor: '#000', width: '80%' },
+  header: { fontSize: 24, fontWeight: 'bold', marginBottom: 10, textAlign:'center' },
   card: {
     padding: 12,
     backgroundColor: '#f9f9f9',
@@ -147,4 +117,9 @@ const styles = StyleSheet.create({
   title: { fontSize: 16, fontWeight: '600', marginBottom: 4 },
   meta: { fontSize: 14, color: '#555' },
   empty: { textAlign: 'center', marginTop: 20, fontSize: 16, color: '#888' },
+  headerWrapper: {
+    width: '90%',
+    alignSelf: 'center', // zentriert horizontal
+    paddingVertical: 16,
+  },
 });
