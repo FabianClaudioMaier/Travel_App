@@ -90,4 +90,8 @@ export interface TransitRoute {
 export type BusRoutes = TransitRoute[];
 export type TrainRoutes = TransitRoute[];
 
-
+export interface Routes {
+  bus_routes: BusRoutes;
+  train_routes: TrainRoutes;
+  flight_routes: PlaneRoutes;
+}
