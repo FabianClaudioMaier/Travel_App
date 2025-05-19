@@ -8,6 +8,12 @@ import React, { useEffect, useState, useRef } from 'react';
 import { FlatList, Text, View } from 'react-native'
 import { Picker } from '@react-native-picker/picker'
 
+/**
+ * RegionForum
+ * Displays a forum view for a given region, with optional
+ * filtering by city, and a button to create new posts.
+ */
+
 const RegionForum = () => {
   const { region_id, autoOpen, city_id, visitDate } = useLocalSearchParams();
   const createPostRef = useRef<CreatePostButtonHandle>(null);
@@ -17,6 +23,9 @@ const RegionForum = () => {
   const [posts, setPosts] = useState<Posts>([])
   const [selectedCityId, setSelectedCityId] = useState<string>('all')
 
+  /**
+   * Fetch region details by ID.
+   */
   const fetchRegion = async () => {
     try {
       const regionData = await api.destinations.getRegionById(region_id as string)
@@ -26,6 +35,9 @@ const RegionForum = () => {
     }
   }
 
+  /**
+   * Fetch all cities belonging to this region.
+   */
   const fetchCities = async () => {
     try {
       const cities = await api.destinations.getCitiesByRegion(region_id as string)
@@ -35,6 +47,9 @@ const RegionForum = () => {
     }
   }
 
+  /**
+   * Fetch all posts for this region, sort most recent first.
+   */
   const fetchPosts = async () => {
     try {
       const posts = await api.forum.getPostsByRegionId(region_id as string)
@@ -45,12 +60,19 @@ const RegionForum = () => {
     }
   }
 
+  /**
+   * Load data when screen comes into focus.
+   */
   useEffect(() => {
     fetchRegion()
     fetchCities()
     fetchPosts()
   }, [])
 
+  /**
+   * Filter posts by selectedCityId.
+   * 'all' means no filtering.
+   */
   const filteredPosts = selectedCityId === 'all'
     ? posts
     : posts.filter((post) => post.city_id === selectedCityId)
@@ -58,10 +80,12 @@ const RegionForum = () => {
   return (
     <View className="flex-1 relative">
 
+      {/* Header with region title & description */}
       <View className="bg-white p-4 shadow-sm">
         <Text className="text-2xl font-bold">{region?.name}</Text>
         <Text className="text-sm text-gray-500">{region?.description}</Text>
 
+        {/* City filter */}
         <View className="mt-2">
           <Text className="text-sm font-bold text-gray-600 mb-1">Filter by City</Text>
           <Picker
@@ -77,6 +101,7 @@ const RegionForum = () => {
         </View>
       </View>
 
+      {/* Posts list */}
       <View className="flex-1">
         <FlatList
           data={filteredPosts}
@@ -88,6 +113,7 @@ const RegionForum = () => {
         />
       </View>
 
+      {/* Button to create new posts */}
       <CreatePostButton
         ref={createPostRef}
         region_id={region_id as string}

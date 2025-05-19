@@ -7,25 +7,33 @@ import {
   View
 } from 'react-native';
 
+/**
+ * Props for the InputDatePicker component.
+ */
 export interface InputDatePickerProps {
-  /** Current start date */
+  /** The currently selected start date. */
   startDate: Date;
-  /** Current end date */
+  /** The currently selected end date. */
   endDate: Date;
-  /** Show start date picker? */
+  /** Whether to display the start date picker. */
   showStartPicker: boolean;
-  /** Show end date picker? */
+  /** Whether to display the end date picker. */
   showEndPicker: boolean;
-  /** Called when start date button is pressed */
+  /** Callback when the start date button is pressed. */
   onStartPress: () => void;
-  /** Called when end date button is pressed */
+  /** Callback when the end date button is pressed. */
   onEndPress: () => void;
-  /** Called when start date is changed */
+  /** Callback triggered when the start date changes. */
   onChangeStart: (event: DateTimePickerEvent, date?: Date) => void;
-  /** Called when end date is changed */
+  /** Callback triggered when the end date changes. */
   onChangeEnd: (event: DateTimePickerEvent, date?: Date) => void;
 }
 
+/**
+ * InputDatePicker component renders departure and return date selectors.
+ * It shows native date pickers and disables the return date if the start date
+ * is not set to a future date.
+ */
 export default function InputDatePicker({
   startDate,
   endDate,
@@ -36,54 +44,59 @@ export default function InputDatePicker({
   onChangeStart,
   onChangeEnd,
 }: InputDatePickerProps) {
+  // State to determine if the end date selector should be disabled
   const [isEndDateDisabled, setIsEndDateDisabled] = useState(true);
 
+  /**
+   * useEffect hook to enable/disable the return date picker based on start date.
+   * Disables return if start date is today or earlier.
+   */
   useEffect(() => {
-    // Enable end date if start date is set
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    // Enable return date only if start date is after today
     setIsEndDateDisabled(startDate.getTime() <= today.getTime());
   }, [startDate]);
 
   return (
-    <View className="rounded-lg p-4 items-center">
-      {/* Header mit Titel */}
-      <View className="mb-4">
-        <Text className="text-lg font-bold text-gray-500 text-center mb-2">
-          Select the Departure and Return date of your Journey:
+    <View style={styles.container}>
+      {/* Header with title */}
+      <View style={styles.header}>
+        <Text style={styles.headerText} numberOfLines={2}>
+          Select the departure and return dates of your journey:
         </Text>
       </View>
 
-      {/* Start- und End-Datum */}
-      <View className='flex-row items-center justify-between'>
-        {/* Start */}
-        <View className='flex-1 text-center'>
-          <Text className='text-base font-bold my-1 ml-1'>Departure</Text>
+      {/* Departure and return selectors */}
+      <View style={styles.row}>
+        {/* Departure Date */}
+        <View style={styles.column}>
+          <Text style={styles.label}>Departure</Text>
           <Pressable
-            className="border-2 border-black rounded"
+            style={styles.pressable}
             onPress={onStartPress}
           >
-            <View className='items-center justify-center h-12'>
-              <Text className='text-base font-bold'>
+            <View style={styles.dateBox}>
+              <Text style={styles.dateText}>
                 {startDate.toLocaleDateString('de-DE')}
               </Text>
             </View>
           </Pressable>
         </View>
 
-        {/* Spacer */}
-        <View style={{ width: 16 }} />
-
-        {/* Ende */}
-        <View className='flex-1 text-center'>
-          <Text className='text-base font-bold my-1 ml-1'>Return</Text>
+        {/* Return Date */}
+        <View style={styles.column}>
+          <Text style={styles.label}>Return</Text>
           <Pressable
-            className={`border-2 border-black rounded ${isEndDateDisabled ? 'opacity-50' : ''}`}
+            style={[
+              styles.pressable,
+              isEndDateDisabled && styles.disabled
+            ]}
             onPress={onEndPress}
             disabled={isEndDateDisabled}
           >
-            <View className='items-center justify-center h-12'>
-              <Text className='text-base font-bold'>
+            <View style={styles.dateBox}>
+              <Text style={styles.dateText}>
                 {endDate.toLocaleDateString('de-DE')}
               </Text>
             </View>
@@ -91,7 +104,7 @@ export default function InputDatePicker({
         </View>
       </View>
 
-      {/* Native Pickers */}
+      {/* Native date pickers */}
       {showStartPicker && (
         <DateTimePicker
           value={startDate}
@@ -114,4 +127,54 @@ export default function InputDatePicker({
   );
 }
 
-const styles = StyleSheet.create({});
+// Stylesheet for InputDatePicker component
+const styles = StyleSheet.create({
+  container: {
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+  },
+  header: {
+    marginBottom: 16,
+  },
+  headerText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    color: '#444',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  column: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  pressable: {
+    borderWidth: 2,
+    borderColor: '#000',
+    borderRadius: 4,
+    backgroundColor: '#fff',
+  },
+  dateBox: {
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+  },
+  dateText: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  disabled: {
+    opacity: 0.5,
+  },
+});

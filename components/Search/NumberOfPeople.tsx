@@ -1,84 +1,135 @@
-// components/NumberOfPeople.js
 import React from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  Image,
   ScrollView
 } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 
+/**
+ * Props for the NumberOfPeople component.
+ */
 export interface NumberOfPeopleProps {
-  /** Aktuelle Anzahl der Erwachsenen */
+  /** Current number of adult travelers */
   numberOfAdults: number;
   /**
-   * Callback, wenn sich die Anzahl der Erwachsenen ändern soll.
-   * @param newCount die neue Anzahl der Erwachsenen
+   * Callback when the number of adults should change.
+   * @param newCount The new number of adults
    */
   onChangeNumberOfAdults: (newCount: number) => void;
-  /** Aktuelle Anzahl der Kinder (12 Jahre oder jünger) */
+  /** Current number of child travelers (12 years or younger) */
   numberOfChildren: number;
   /**
-   * Callback, wenn sich die Anzahl der Kinder ändern soll.
-   * @param newCount die neue Anzahl der Kinder
+   * Callback when the number of children should change.
+   * @param newCount The new number of children
    */
   onChangeNumberOfChildren: (newCount: number) => void;
 }
 
-export default function MaximalPrice({ numberOfAdults, onChangeNumberOfAdults, numberOfChildren, onChangeNumberOfChildren }:NumberOfPeopleProps ) {
+/**
+ * NumberOfPeople component provides UI controls to adjust the number of
+ * adults and children in the travel party.
+ *
+ * Features:
+ * - Displays section labels for adults and children.
+ * - Provides decrement and increment buttons for each group.
+ * - Ensures counts cannot go below zero.
+ */
+export default function NumberOfPeople({
+  numberOfAdults,
+  onChangeNumberOfAdults,
+  numberOfChildren,
+  onChangeNumberOfChildren
+}: NumberOfPeopleProps) {
   return (
-    <View className="items-center p-4">
-      {/* Erläuterungstexte */}
-      <Text className="text-xl font-bold opacity-70 text-center mb-1 w-[300px]">
-        Adults
-      </Text>
-
-      {/* manueller Wert */}
-      <View className="flex flex-row items-center mb-3 gap-5">
+    <View style={styles.container}>
+      {/* Section: Adults */}
+      <Text style={styles.sectionLabel}>Adults</Text>
+      <View style={styles.adjustRow}>
+        {/* Decrement adults count, minimum 0 */}
         <TouchableOpacity
-          className="w-[70px] h-[60px] rounded-lg border-2 border-black justify-center items-center mx-2 bg-[#f0f0f0]"
+          style={styles.adjustButton}
           onPress={() => onChangeNumberOfAdults(Math.max(0, numberOfAdults - 1))}
         >
           <FontAwesome name="minus" size={36} color="black" />
         </TouchableOpacity>
-        <Text className="text-5xl font-bold mx-2">{numberOfAdults}</Text>
+        {/* Display current adults count */}
+        <Text style={styles.countText}>{numberOfAdults}</Text>
+        {/* Increment adults count */}
         <TouchableOpacity
-          className="w-[70px] h-[60px] rounded-lg border-2 border-black justify-center items-center mx-2 bg-[#f0f0f0]"
+          style={styles.adjustButton}
           onPress={() => onChangeNumberOfAdults(numberOfAdults + 1)}
         >
           <FontAwesome name="plus" size={36} color="black" />
         </TouchableOpacity>
       </View>
 
-      {/* Erläuterungstexte */}
-      <Text className="text-xl font-bold opacity-70 text-center mb-1 w-[300px]">
-        Children
-      </Text>
-      <Text className="text-sm text-black-500 text-center mb-1 w-[300px]">
-        12 Years or Younger
-      </Text>
-
-      {/* manueller Wert */}
-      <View className="flex flex-row items-center mb-3 gap-5">
+      {/* Section: Children */}
+      <Text style={styles.sectionLabel}>Children</Text>
+      <Text style={styles.subLabel}>12 years or younger</Text>
+      <View style={styles.adjustRow}>
+        {/* Decrement children count, minimum 0 */}
         <TouchableOpacity
-          className="w-[70px] h-[60px] rounded-lg border-2 border-black justify-center items-center mx-2 bg-[#f0f0f0]"
+          style={styles.adjustButton}
           onPress={() => onChangeNumberOfChildren(Math.max(0, numberOfChildren - 1))}
         >
           <FontAwesome name="minus" size={36} color="black" />
         </TouchableOpacity>
-        <Text className="text-5xl font-bold mx-2">{numberOfChildren}</Text>
+        {/* Display current children count */}
+        <Text style={styles.countText}>{numberOfChildren}</Text>
+        {/* Increment children count */}
         <TouchableOpacity
-          className="w-[70px] h-[60px] rounded-lg border-2 border-black justify-center items-center mx-2 bg-[#f0f0f0]"
+          style={styles.adjustButton}
           onPress={() => onChangeNumberOfChildren(numberOfChildren + 1)}
         >
           <FontAwesome name="plus" size={36} color="black" />
         </TouchableOpacity>
-        
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({});
+// Styles for NumberOfPeople component
+const styles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    padding: 16,
+  },
+  sectionLabel: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  subLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  adjustRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  adjustButton: {
+    width: 70,
+    height: 60,
+    borderWidth: 2,
+    borderColor: '#000',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f0f0f0',
+    marginHorizontal: 8,
+  },
+  countText: {
+    fontSize: 48,
+    fontWeight: '700',
+    marginHorizontal: 8,
+    color: '#000',
+  },
+});
