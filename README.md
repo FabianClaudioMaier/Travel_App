@@ -8,7 +8,7 @@
 
 ### Technical Stack
 * Framework: Expo 53 - React Native Android
-* API-Version:	Android API 36
+* API-Version:	Android API 30
 
 ### Testing Environment
 * Tested Devices: 
