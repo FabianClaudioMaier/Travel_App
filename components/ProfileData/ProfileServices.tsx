@@ -53,7 +53,7 @@ const RequiredServices = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.header}>Services</Text>
+      <Text style={styles.header}>Select your required Services</Text>
       <View style={styles.grid}>
         {services.map((service, index) => {
           const isActive = selected.includes(service);

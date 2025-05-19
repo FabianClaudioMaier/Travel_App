@@ -54,7 +54,6 @@ export default function ProfileScreen() {
           <ProfileHometown />
           <ProfileAnonymousmode />
           <ProfileServices />
-          <ProfileTransportation />
           <Text style={styles.header}>My Travels</Text>
         </View>
       )}

@@ -149,6 +149,7 @@ export default function TripConfigurator() {
   useEffect(() => {
     fetchRegions();
     fetchAllCities();
+
   }, []);
 
   // Add / Remove Stops
@@ -194,6 +195,7 @@ export default function TripConfigurator() {
     if (step < labels.length - 1) return setStep(step + 1);
 
     const pushParams = {
+      id: null,
       regionId: selectedRegionId!,
       origin: startCity,
       destination: startCity,

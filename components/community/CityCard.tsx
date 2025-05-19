@@ -4,13 +4,12 @@ import { City, Region } from '@/interfaces/destinations'
 import { router } from 'expo-router'
 
 const CityCard = ({ city }: { city: City }) => {
-  const { city_name, image_url, id } = city
+  const { city_name, image_url, id, region_id } = city
 
 
 
   return (
-    <TouchableOpacity
-      onPress={() => router.push(`/community/forum/${id}`)}
+    <View
       className="rounded-lg shadow-md bg-white rounded-xl m-4"
     >
       <Image
@@ -23,7 +22,7 @@ const CityCard = ({ city }: { city: City }) => {
           <Text className="text-xl font-bold">{city_name}</Text>
         </View>
       </View>
-    </TouchableOpacity>
+    </View>
   )
 }
 
