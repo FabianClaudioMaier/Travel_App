@@ -16,6 +16,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import api from '../../services/api';
 import CityCard from '@/components/community/CityCard';
 import RegionSwiper from '@/components/RegionSwiper';
+import Header from '@/components/Result/Header';
 import { City } from '@/interfaces/destinations';
 import { TransitRoute } from '@/interfaces/routes';
 import { v4 as uuidv4 } from 'uuid';
@@ -189,6 +190,8 @@ export default function ResultScreen() {
   const [startDate, setStartDate]         = useState<Date>();
   const [endDate,   setEndDate]           = useState<Date>();
   const [priceLimit, setPriceLimit]       = useState<number>(Infinity);
+  const [region, setRegion]            = useState('');
+  const [people, setPeople]            = useState('');
 
   const [cards, setCards]               = useState<LegCardProps[]>([]);
   const [polylineCoords, setPolylineCoords] = useState<LatLng[]>([]);
@@ -225,11 +228,14 @@ export default function ResultScreen() {
         setStartDate(rec.start_date?new Date(rec.start_date):undefined);
         setEndDate(rec.end_date?new Date(rec.end_date):undefined);
         setPriceLimit(rec.price||Infinity);
+        setRegion(rec.regionId||'');
+        setPeople(rec.people||'');
       } else {
         originVal = params.origin   || '';
         destVal   = params.destination||'';
         stopsArr  = params.stops?.split(',')||[];
         modesArr  = params.modes?.split(',')||[];
+        peopleNum  = params.people?.split(',')||[];
         setOrigin(params.origin!);
         setDestination(params.destination!);
         setOriginAirport(params.originAirport||'');
@@ -239,6 +245,8 @@ export default function ResultScreen() {
         setStartDate(params.start_date?new Date(params.start_date):undefined);
         setEndDate(params.end_date?new Date(params.end_date):undefined);
         setPriceLimit(params.price?Number(params.price):Infinity);
+        setRegion(params.regionId?params.regionId:'');
+        setPeople(params.numberOfAdults?Number(params.numberOfAdults) + (params.numberOfChildren?Number(params.numberOfChildren) : 0) : 0);
       }
 
       // --- 2. Log & Permutation mit lokalen Werten ---
@@ -309,7 +317,7 @@ export default function ResultScreen() {
 
       setLoading(false);
     })();
-  }, [params.id, params.origin, params.destination, params.stops, params.modes]);
+  }, [params.id, params.origin, params.destination, params.stops, params.modes, params.regionId]);
 
   // 2) Cities für CityCards
   useEffect(() => {
@@ -346,6 +354,15 @@ export default function ResultScreen() {
 
   return (
     <>
+    <Header
+      region={region || "Start a new Search"}
+      dateRange={
+        startDate && endDate
+          ? `${startDate.toLocaleDateString()} – ${endDate.toLocaleDateString()}`
+          : "Select a Region"
+      }
+      guests={people || "in the Homescreen"}
+    />
     <View style={styles.container}>
       <ScrollView>
         {polylineCoords.length>0 && (
@@ -371,7 +388,7 @@ export default function ResultScreen() {
               <Icon name="home" size={20} color="#fff"/>
               <Text style={styles.saveText}>Home</Text>
             </TouchableOpacity>
-            <Text style={styles.noRoutes}>Keine Routen verfügbar</Text>
+            <Text style={styles.noRoutes}>No routes available</Text>
           </>
         )}
       </ScrollView>
@@ -386,7 +403,9 @@ export default function ResultScreen() {
               stops, stopsAirport, modes,
               start_date:startDate?.toISOString(),
               end_date:endDate?.toISOString(),
-              price: priceLimit
+              price: priceLimit,
+              region: region,
+              people: people
             };
             const json = await AsyncStorage.getItem('myTravels');
             const arr  = json?JSON.parse(json):[];

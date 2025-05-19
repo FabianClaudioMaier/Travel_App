@@ -88,10 +88,10 @@ const styles = StyleSheet.create({
   info: { gap: 2, marginTop: 8 },
   textTypo: { fontFamily: 'Inter-Regular', paddingHorizontal: 10 },
   text: { fontSize: 12, color: 'rgba(0,0,0,0.5)' },
-  destinationText: { fontSize: 14, paddingHorizontal: 10 },
+  destinationText: { fontSize: 16, paddingHorizontal: 10 },
   text1Clr: { color: '#000' },
-  buttonsRow: { flexDirection: 'row', gap: 8, marginLeft: 10 },
-  pill: { alignSelf: 'flex-start', paddingVertical: 5, paddingHorizontal: 10, borderWidth: 2, borderColor: '#e6e6e6', borderRadius: 6 },
-  label: { fontSize: 14, color: '#1a1a1a' },
+  buttonsRow: { flexDirection: 'row', gap: 20, marginLeft: 10 },
+  pill: { alignSelf: 'flex-start', paddingVertical: 5, paddingHorizontal: 10, backgroundColor: '#000', borderRadius: 6 },
+  label: { fontSize: 16, color: '#fff' },
 });
 export default TravelCard;

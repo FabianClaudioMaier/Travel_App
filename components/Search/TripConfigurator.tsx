@@ -196,7 +196,7 @@ export default function TripConfigurator() {
 
     const pushParams = {
       id: null,
-      regionId: selectedRegionId!,
+      regionId: selectedRegionId.toString(),
       origin: startCity,
       destination: startCity,
       originAirport,
@@ -206,6 +206,8 @@ export default function TripConfigurator() {
       start_date: startDate.toISOString(),
       end_date: endDate.toISOString(),
       price: maxPrice.toString(),
+      numberOfAdults: numberOfAdults.toString(),
+      numberOfChildren: numberOfChildren.toString(),
     };
 
     console.log('[TripConfigurator] Navigating to ResultScreen with params:', pushParams);
@@ -308,7 +310,7 @@ export default function TripConfigurator() {
       case 1:
         return (
           <View className="items-center">
-            <Text className="text-2xl font-bold mb-2">Passengers</Text>
+            <Text className="text-2xl font-bold mb-2">Travelers</Text>
             <NumberOfPeople numberOfAdults={numberOfAdults} onChangeNumberOfAdults={setNumberOfAdults} numberOfChildren={numberOfChildren} onChangeNumberOfChildren={setNumberOfChildren} />
           </View>
         );
