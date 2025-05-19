@@ -31,7 +31,7 @@ export default function MaximalPrice({ numberOfAdults, onChangeNumberOfAdults, n
   return (
     <View className="items-center p-4">
       {/* Erläuterungstexte */}
-      <Text className="text-base font-bold opacity-70 text-center mb-1 w-[300px]">
+      <Text className="text-xl font-bold opacity-70 text-center mb-1 w-[300px]">
         Adults
       </Text>
 
@@ -53,10 +53,10 @@ export default function MaximalPrice({ numberOfAdults, onChangeNumberOfAdults, n
       </View>
 
       {/* Erläuterungstexte */}
-      <Text className="text-base font-bold opacity-70 text-center mb-1 w-[300px]">
+      <Text className="text-xl font-bold opacity-70 text-center mb-1 w-[300px]">
         Children
       </Text>
-      <Text className="text-sm text-gray-500 text-center mb-1 w-[300px]">
+      <Text className="text-sm text-black-500 text-center mb-1 w-[300px]">
         12 Years or Younger
       </Text>
 
@@ -77,9 +77,6 @@ export default function MaximalPrice({ numberOfAdults, onChangeNumberOfAdults, n
         </TouchableOpacity>
         
       </View>
-
-
-
     </View>
   );
 }

@@ -49,7 +49,7 @@ export default function InputDatePicker({
     <View className="rounded-lg p-4 items-center">
       {/* Header mit Titel */}
       <View className="mb-4">
-        <Text className="text-lg">
+        <Text className="text-lg font-bold text-gray-500 text-center mb-2">
           Select the Departure and Return date of your Journey:
         </Text>
       </View>

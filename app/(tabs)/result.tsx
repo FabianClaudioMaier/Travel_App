@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Dimensions,
   Alert,
+  Linking,
 } from 'react-native';
 import MapView, { Polyline, Marker, LatLng } from 'react-native-maps';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -19,6 +20,7 @@ import RegionSwiper from '@/components/RegionSwiper';
 import Header from '@/components/Result/Header';
 import { City } from '@/interfaces/destinations';
 import { TransitRoute } from '@/interfaces/routes';
+import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
 
 const airportCoordinates: Record<string, { latitude: number; longitude: number }> = require('../../data/airportCoordinates.json');
@@ -110,27 +112,66 @@ async function fetchFlights(
 }
 
 async function getBestLeg(
-  fromName:string, toName:string,
-  fromAirport:string, toAirport:string,
-  modes:string[]
+  fromName:string,
+  toName:string,
+  fromAirport:string,
+  toAirport:string,
+  modes:string[],
+  cities: City[]
 ) {
-  type C = { info:{duration:number;distanceMeters:number;encodedPolyline:string}; mode:'Bus'|'Train'|'Flight' };
+  type C = {
+    info: {
+      duration: number;
+      distanceMeters: number;
+      encodedPolyline: string;
+      price?: string;
+    };
+    mode: 'Bus' | 'Train' | 'Flight';
+  };
+
   const cand: C[] = [];
+
   if (modes.includes('bus')) {
     const infos = await fetchLegMode('buses', fromName, toName);
-    infos.forEach(info => cand.push({ info, mode:'Bus' }));
+    const city = cities.find(c => c.city_name === toName);
+    const busPrice = city?.price?.bus ? `~€${city.price.bus.min}–${city.price.bus.max}` : 'N/A';
+
+    infos.forEach(info =>
+      cand.push({
+        info: { ...info, price: busPrice },
+        mode: 'Bus'
+      })
+    );
   }
+
   if (modes.includes('train')) {
     const infos = await fetchLegMode('trains', fromName, toName);
-    infos.forEach(info => cand.push({ info, mode:'Train' }));
+    const city = cities.find(c => c.city_name === toName);
+    const trainPrice = city?.price?.train ? `~€${city.price.train.min}–${city.price.train.max}` : 'N/A';
+
+    infos.forEach(info =>
+      cand.push({
+        info: { ...info, price: trainPrice },
+        mode: 'Train'
+      })
+    );
   }
+
   if (modes.includes('flight') && fromAirport && toAirport) {
     const infos = await fetchFlights(fromAirport, toAirport);
-    infos.forEach(info => cand.push({ info, mode:'Flight' }));
+    infos.forEach(info =>
+      cand.push({
+        info: { ...info, price: `€${Math.round(info.distanceMeters / 1000)}` }, // Dummy or distance-based estimation
+        mode: 'Flight'
+      })
+    );
   }
+
   if (!cand.length) return null;
-  return cand.reduce((a,b) => a.info.duration<b.info.duration ? a : b);
+
+  return cand.reduce((a, b) => a.info.duration < b.info.duration ? a : b);
 }
+
 
 function permute<T>(items:T[]):T[][] {
   if (items.length<=1) return [items];
@@ -146,8 +187,9 @@ interface LegCardProps {
   originCity:string;
   destCity:string;
   date?:string;
+  price?:string;
 }
-const LegCard: React.FC<LegCardProps> = ({ modes, duration, originCity, destCity, date }) => {
+const LegCard: React.FC<LegCardProps> = ({ modes, duration, originCity, destCity, date, price }) => {
   const hours = Math.floor(duration/3600);
   const mins  = Math.floor((duration%3600)/60);
   const h0 = Math.floor(Math.random()*24);
@@ -158,21 +200,31 @@ const LegCard: React.FC<LegCardProps> = ({ modes, duration, originCity, destCity
   const end = `${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')}`;
 
   return (
-    <View style={styles.cardContainer}>
+    <TouchableOpacity
+        style={styles.cardContainer}
+        onPress={() => {
+          const query = encodeURIComponent(`${modes} to ${destCity}`);
+          const url = `https://www.google.com/search?q=${query}`;
+          Linking.openURL(url).catch(err =>
+            console.error('Failed to open URL:', err)
+          );
+        }}
+    >
       <View style={styles.headerRow}>
         <Icon
           name={modes==='Flight'?'airplane-outline':modes==='Bus'?'bus-outline':'train-outline'}
           size={24} color="#111"
         />
         <Text style={styles.productName}>{`${modes} ${originCity} → ${destCity}`}</Text>
+        {(price != 'N/A') && <Text style={styles.productName}>{price}</Text>}
+        <Icon name='open-outline' size={24}/>
       </View>
       <View style={styles.timelineRow}>
         <Text style={styles.timeText}>{start}</Text>
         <Text style={styles.durationText}>{`${hours}h ${mins}m`}</Text>
         <Text style={styles.timeText}>{end}</Text>
       </View>
-      {date && <Text style={styles.dateText}>{date}</Text>}
-    </View>
+    </TouchableOpacity>
   );
 };
 
@@ -202,6 +254,7 @@ export default function ResultScreen() {
 
   // 1) Routen-Berechnung
   useEffect(() => {
+    if (!allCities.length) return;
     (async () => {
       setLoading(true);
 
@@ -268,7 +321,8 @@ export default function ResultScreen() {
           const leg = await getBestLeg(
             seqCities[i], seqCities[i+1],
             seqAirports[i], seqAirports[i+1],
-            modesArr
+            modesArr,
+            allCities
           );
           if (!leg) { sumTime = Infinity; break; }
           sumTime += leg.info.duration;
@@ -289,6 +343,7 @@ export default function ResultScreen() {
           originCity: i>0?stopsArr[i-1]:originVal,
           destCity: i<stopsArr.length?stopsArr[i]:destVal,
           date: startDate?.toLocaleDateString(),
+          price: l.info.price,
         }));
 
         const coords:LatLng[] = [];
@@ -317,7 +372,7 @@ export default function ResultScreen() {
 
       setLoading(false);
     })();
-  }, [params.id, params.origin, params.destination, params.stops, params.modes, params.regionId]);
+  }, [params.id, params.origin, params.destination, params.stops, params.modes, params.regionId, allCities]);
 
   // 2) Cities für CityCards
   useEffect(() => {
@@ -358,10 +413,10 @@ export default function ResultScreen() {
       region={region || "Start a new Search"}
       dateRange={
         startDate && endDate
-          ? `${startDate.toLocaleDateString()} – ${endDate.toLocaleDateString()}`
+          ? `${startDate.toLocaleDateString('de-DE')} – ${endDate.toLocaleDateString('de-DE')}`
           : "Select a Region"
       }
-      guests={people || "in the Homescreen"}
+      guests={people? people + ' Travelers' : "in the Homescreen"}
     />
     <View style={styles.container}>
       <ScrollView>
@@ -396,22 +451,30 @@ export default function ResultScreen() {
       {!params.id && cards.length > 0 && (
         <TouchableOpacity
           style={styles.saveButton}
-          onPress={async()=>{
-            const rec = {
-              id: uuidv4(),
-              origin, destination, originAirport,
-              stops, stopsAirport, modes,
-              start_date:startDate?.toISOString(),
-              end_date:endDate?.toISOString(),
-              price: priceLimit,
-              region: region,
-              people: people
-            };
-            const json = await AsyncStorage.getItem('myTravels');
-            const arr  = json?JSON.parse(json):[];
-            arr.push(rec);
-            await AsyncStorage.setItem('myTravels', JSON.stringify(arr));
-            Alert.alert('Erfolg','Route gespeichert');
+          onPress={async () => {
+            try {
+              const rec = {
+                id: uuidv4(),
+                origin, destination, originAirport,
+                stops, stopsAirport, modes,
+                start_date: startDate?.toISOString(),
+                end_date: endDate?.toISOString(),
+                price: priceLimit,
+                region,
+                people
+              };
+
+              const json = await AsyncStorage.getItem('myTravels');
+              const arr = json ? JSON.parse(json) : [];
+              arr.push(rec);
+              await AsyncStorage.setItem('myTravels', JSON.stringify(arr));
+
+              console.log("Gespeicherte Reisen:", arr);
+              Alert.alert('Erfolg', 'Route gespeichert');
+            } catch (err) {
+              console.error("Fehler beim Speichern:", err);
+              Alert.alert('Fehler', 'Speichern fehlgeschlagen.');
+            }
           }}
         >
           <Icon name="save-outline" size={20} color="#fff"/>
@@ -433,7 +496,7 @@ const styles = StyleSheet.create({
   timelineRow:{flexDirection:'row',justifyContent:'space-between',alignItems:'center'},
   timeText:{fontSize:12,color:'#6b7280'},
   durationText:{fontSize:12,color:'#6b7280'},
-  dateText:{position:'absolute',top:12,right:12,fontSize:12,color:'#4b5563'},
+  dateText:{fontSize:12,color:'#4b5563'},
   noRoutes:{textAlign:'center',marginTop:20,fontSize:16},
   saveButton:{position:'absolute',bottom:20,right:20,flexDirection:'row',alignItems:'center',backgroundColor:'#000',paddingHorizontal:16,paddingVertical:12,borderRadius:28},
   homeButton:{position:'absolute',top: 50,left:width*0.35,flexDirection:'row',alignItems:'center',backgroundColor:'#000',paddingHorizontal:16,paddingVertical:12,borderRadius:28},

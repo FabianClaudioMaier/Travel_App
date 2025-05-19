@@ -220,8 +220,8 @@ export default function TripConfigurator() {
       case 0:
         return (
           <>
-            <Text className="text-base text-gray-500">Select a region</Text>
-            <View className="border border-gray-200 rounded-md">
+            <Text className="text-lg font-bold text-gray-500 text-center mb-2">Select a region</Text>
+            <View className="border border-black-200 rounded-md">
               <Picker
                 selectedValue={selectedRegionId}
                 onValueChange={(value) => {
@@ -240,7 +240,7 @@ export default function TripConfigurator() {
 
             {selectedRegionId && (
               <>
-                <Text className="mt-4 text-base text-gray-500">Select Stops</Text>
+                <Text className="text-lg font-bold text-gray-500 text-center mt-4">Select Stops</Text>
 
                 {/* angezeigte Stops */}
                 <View style={styles.stopsContainer}>
@@ -341,7 +341,7 @@ export default function TripConfigurator() {
         return (
           <View className="items-center">
             <Text className="text-2xl font-bold mb-2">Transport Modes</Text>
-            <Text className="text-sm text-gray-500">Select the modes of transport you want to use</Text>
+            <Text className="text-lg font-bold text-gray-500 text-center mb-2">Select the modes of transport you want to use:</Text>
             <View className="flex-row flex-wrap mt-4 justify-center items-center gap-2 w-full">
               {MODES.map(m => (
                 <TouchableOpacity
@@ -385,7 +385,7 @@ export default function TripConfigurator() {
   };
 
   return (
-    <View className="bg-white p-4 rounded-lg w-full">
+    <View className="p-4 rounded-lg w-full">
       <StepIndicator
         customStyles={stepIndicatorStyles}
         currentPosition={step}
@@ -393,28 +393,30 @@ export default function TripConfigurator() {
         stepCount={labels.length}
       />
       <View style={styles.stepsContainer}>{renderContent()}</View>
-      <View className="flex-row justify-between mt-auto">
-        {step > 0 && (
-          <Pressable
-            style={styles.navButton}
-            onPress={() => setStep(step - 1)}
-          >
-            <Text style={styles.buttonText}>Back</Text>
-          </Pressable>
-        )}
-        <Pressable
-          style={[styles.navButton, !canNext() && styles.buttonDisabled]}
-          onPress={onNext}
-          disabled={!canNext()}
-        >
-          <Text style={styles.buttonText}>
-            {step === labels.length - 1
-              ? 'Show Route'
-              : step === 0
-              ? 'Start'
-              : 'Next'}
-          </Text>
-        </Pressable>
+      <View className="p-4 rounded-lg w-full">
+          <View className="flex-row justify-between mt-auto">
+            {step > 0 && (
+              <Pressable
+                style={styles.navButton}
+                onPress={() => setStep(step - 1)}
+              >
+                <Text style={styles.buttonText}>Back</Text>
+              </Pressable>
+            )}
+            <Pressable
+              style={[styles.navButton, !canNext() && styles.buttonDisabled]}
+              onPress={onNext}
+              disabled={!canNext()}
+            >
+              <Text style={styles.buttonText}>
+                {step === labels.length - 1
+                  ? 'Show Route'
+                  : step === 0
+                  ? 'Start'
+                  : 'Next'}
+              </Text>
+            </Pressable>
+          </View>
       </View>
     </View>
   );

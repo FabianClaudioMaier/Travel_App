@@ -20,31 +20,31 @@ export interface MaximalPriceProps {
   onChange: (newPrice: number) => void;
 }
 
-const PRICE_OPTIONS = [100, 200, 500, 1000, 2000];
+const PRICE_OPTIONS = [100, 500, 1000, 2000, 3500, 5000];
 
 export default function MaximalPrice({ maxPrice, onChange }:MaximalPriceProps ) {
   return (
     <View className="p-4 items-center w-full">
       {/* Erläuterungstexte */}
-      <Text className="text-base font-bold text-gray-500 text-center mb-2">
+      <Text className="text-lg font-bold text-gray-500 text-center mb-2">
         The total price of the journey should not exceed this price*
       </Text>
 
       {/* manueller Wert */}
-      <View className="flex-row items-center gap-4 mb-4">
+      <View className="flex-row items-center mb-4">
         <TouchableOpacity
-          className="w-[70px] h-[60px] rounded-lg border-2 border-black justify-center items-center mx-2 bg-[#f0f0f0]"
+          className="w-[70px] h-[60px]  rounded-lg border-2 border-black justify-center items-center mx-2 bg-[#f0f0f0]"
           onPress={() => onChange(Math.max(0, maxPrice - 100))}
         >
-          <FontAwesome name="minus" size={24} color="black" />
+          <FontAwesome name="minus" size={36} color="black" />
         </TouchableOpacity>        
         <Text className="text-5xl font-bold mx-2">{maxPrice}</Text>
-        <Text className="text-5xl font-bold">€</Text>
+        <Text className="text-4xl font-bold">€</Text>
         <TouchableOpacity
           className="w-[70px] h-[60px] rounded-lg border-2 border-black justify-center items-center mx-2 bg-[#f0f0f0]"
           onPress={() => onChange(maxPrice + 100)}
         >
-          <FontAwesome name="plus" size={24} color="black" />
+          <FontAwesome name="plus" size={36} color="black" />
         </TouchableOpacity>
       </View>
 
@@ -68,7 +68,7 @@ export default function MaximalPrice({ maxPrice, onChange }:MaximalPriceProps ) 
         ))}
       </ScrollView>
 
-      <Text className="text-sm text-gray-500 text-center mb-1 w-[300px]">
+      <Text className="text-sm text-grey-500 text-center mb-1 w-[300px]">
         *If we are unable to find a fitting trip, we will show you the cheapest result.
       </Text>
     </View>

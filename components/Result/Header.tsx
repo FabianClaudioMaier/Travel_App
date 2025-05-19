@@ -18,7 +18,7 @@ const Header: React.FC<HeaderProps> = ({ region, dateRange, guests }) => (
       <View>
         <Text style={styles.text1} numberOfLines={1}>{region.replaceAll('_', ' ')}</Text>
         <Text style={styles.text2} numberOfLines={1}>{dateRange}</Text>
-        <Text style={styles.text2} numberOfLines={1}>{guests} Travelers</Text>
+        <Text style={styles.text2} numberOfLines={1}>{guests}</Text>
       </View>
     </View>
   </View>

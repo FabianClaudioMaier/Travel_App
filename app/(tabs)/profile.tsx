@@ -1,5 +1,5 @@
 /* ProfileScreen.tsx (angepasst) */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
@@ -12,22 +12,28 @@ import ProfileAnonymousmode from '@/components/ProfileData/ProfileAnonymousmode'
 import ProfileServices from '@/components/ProfileData/ProfileServices';
 import ProfileTransportation from '@/components/ProfileData/ProfileTransportation';
 import TravelCard, { TravelRecord } from '@/components/ProfileData/TravelCard';
+import { useFocusEffect } from '@react-navigation/native';
+
 
 export default function ProfileScreen() {
   const [travels, setTravels] = useState<TravelRecord[]>([]);
   const router = useRouter();
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const json = await AsyncStorage.getItem('myTravels');
-        const list: TravelRecord[] = json ? JSON.parse(json) : [];
-        setTravels(list);
-      } catch (e) {
-        console.warn('Failed to load travels', e);
-      }
-    })();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      const loadTravels = async () => {
+        try {
+          const json = await AsyncStorage.getItem('myTravels');
+          const list: TravelRecord[] = json ? JSON.parse(json) : [];
+          setTravels(list);
+        } catch (e) {
+          console.warn('Failed to load travels', e);
+        }
+      };
+
+      loadTravels();
+    }, [])
+  );
 
   const renderItem = ({ item }: { item: TravelRecord }) => {
     if (!item.start_date || !item.end_date) return null;

@@ -53,6 +53,12 @@ export default function Summary({
         </View>
         <Text className="ml-2 text-lg font-bold">Max. € {maxPrice.toLocaleString()}</Text>
       </View>
+      <View className="flex-row items center mb-2 gap-2">
+        <View className="w-10 h-6 items-center justify-center">
+          <FontAwesome name="plane" size={20}/>
+        </View>
+        <Text className="ml-2 text-lg font-bold">{modes.join(', ')}</Text>
+      </View>
     </View>
   );
 }

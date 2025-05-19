@@ -75,7 +75,7 @@ const TravelCard: React.FC<{ item: TravelRecord }> = ({ item }) => {
       </View>
       <View style={styles.buttonsRow}>
         <TouchableOpacity style={styles.pill} onPress={handleOpen}><Text style={styles.label}>Open</Text></TouchableOpacity>
-        <TouchableOpacity style={styles.pill} onPress={handlePublish}><Text style={styles.label}>Publish to Community</Text></TouchableOpacity>
+        <TouchableOpacity style={styles.pill} onPress={handlePublish}><Text style={styles.label}>See the Community</Text></TouchableOpacity>
       </View>
     </View>
   );
