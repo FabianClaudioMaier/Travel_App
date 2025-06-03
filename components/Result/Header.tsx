@@ -54,6 +54,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: 12,
+    padding: 8,
   },
   // Primary text: region name
   textPrimary: {
@@ -72,8 +73,8 @@ const styles = StyleSheet.create({
   search: {
     borderRadius: 12,
     backgroundColor: '#dfdfdf',
-    width: '100%',
-    padding: 10,
+    width: '96%',
+    margin: 8,
   },
   // Inner row container for icon and texts
   search1: {

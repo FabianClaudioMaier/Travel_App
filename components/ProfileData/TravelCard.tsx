@@ -54,7 +54,7 @@ const TravelCard: React.FC<Props> = ({ item }) => {
   const handleOpen = () => {
     console.log('[TravelCard] Opening saved travel:', item);
     router.push({
-      pathname: '/result',
+      pathname: '/',
       params: {
         id: item.id.toString(),
       },

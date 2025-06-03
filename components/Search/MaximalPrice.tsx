@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
   },
   priceText: {
-    fontSize: 48,
+    fontSize: 36,
     fontWeight: 'bold',
     marginHorizontal: 8,
   },

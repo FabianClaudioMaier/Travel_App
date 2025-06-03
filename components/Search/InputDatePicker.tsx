@@ -1,39 +1,25 @@
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import React, { useEffect, useState } from 'react';
 import {
+  Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   View
 } from 'react-native';
 
-/**
- * Props for the InputDatePicker component.
- */
 export interface InputDatePickerProps {
-  /** The currently selected start date. */
   startDate: Date;
-  /** The currently selected end date. */
   endDate: Date;
-  /** Whether to display the start date picker. */
   showStartPicker: boolean;
-  /** Whether to display the end date picker. */
   showEndPicker: boolean;
-  /** Callback when the start date button is pressed. */
   onStartPress: () => void;
-  /** Callback when the end date button is pressed. */
   onEndPress: () => void;
-  /** Callback triggered when the start date changes. */
   onChangeStart: (event: DateTimePickerEvent, date?: Date) => void;
-  /** Callback triggered when the end date changes. */
   onChangeEnd: (event: DateTimePickerEvent, date?: Date) => void;
 }
 
-/**
- * InputDatePicker component renders departure and return date selectors.
- * It shows native date pickers and disables the return date if the start date
- * is not set to a future date.
- */
 export default function InputDatePicker({
   startDate,
   endDate,
@@ -44,32 +30,70 @@ export default function InputDatePicker({
   onChangeStart,
   onChangeEnd,
 }: InputDatePickerProps) {
-  // State to determine if the end date selector should be disabled
   const [isEndDateDisabled, setIsEndDateDisabled] = useState(true);
 
-  /**
-   * useEffect hook to enable/disable the return date picker based on start date.
-   * Disables return if start date is today or earlier.
-   */
   useEffect(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    // Enable return date only if start date is after today
     setIsEndDateDisabled(startDate.getTime() <= today.getTime());
   }, [startDate]);
 
+  const renderDatePicker = (
+    visible: boolean,
+    value: Date,
+    onChange: (event: DateTimePickerEvent, date?: Date) => void,
+    minimumDate: Date
+  ) => {
+    if (!visible) return null;
+
+    if (Platform.OS === 'ios') {
+      return (
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={visible}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.pickerWrapper}>
+              <DateTimePicker
+                value={value}
+                mode="date"
+                display="spinner"
+                onChange={onChange}
+                minimumDate={minimumDate}
+              />
+              <Pressable
+                onPress={() => onChange({ type: 'dismissed', nativeEvent: {} } as any)}
+                style={styles.modalDoneButton}
+              >
+                <Text style={styles.doneText}>Fertig</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
+      );
+    }
+
+    return (
+      <DateTimePicker
+        value={value}
+        mode="date"
+        display="default"
+        onChange={onChange}
+        minimumDate={minimumDate}
+      />
+    );
+  };
+
   return (
     <View style={styles.container}>
-      {/* Header with title */}
       <View style={styles.header}>
-        <Text style={styles.headerText} numberOfLines={2}>
+        <Text style={styles.headerText}>
           Select the departure and return dates of your journey:
         </Text>
       </View>
 
-      {/* Departure and return selectors */}
       <View style={styles.row}>
-        {/* Departure Date */}
         <View style={styles.column}>
           <Text style={styles.label}>Departure</Text>
           <Pressable
@@ -84,14 +108,10 @@ export default function InputDatePicker({
           </Pressable>
         </View>
 
-        {/* Return Date */}
         <View style={styles.column}>
           <Text style={styles.label}>Return</Text>
           <Pressable
-            style={[
-              styles.pressable,
-              isEndDateDisabled && styles.disabled
-            ]}
+            style={[styles.pressable, isEndDateDisabled && styles.disabled]}
             onPress={onEndPress}
             disabled={isEndDateDisabled}
           >
@@ -104,30 +124,14 @@ export default function InputDatePicker({
         </View>
       </View>
 
-      {/* Native date pickers */}
-      {showStartPicker && (
-        <DateTimePicker
-          value={startDate}
-          mode="date"
-          display="default"
-          onChange={onChangeStart}
-          minimumDate={new Date()}
-        />
-      )}
-      {showEndPicker && (
-        <DateTimePicker
-          value={endDate}
-          mode="date"
-          display="default"
-          onChange={onChangeEnd}
-          minimumDate={startDate}
-        />
-      )}
+      {/* Date Pickers (platform dependent) */}
+      {renderDatePicker(showStartPicker, startDate, onChangeStart, new Date())}
+      {renderDatePicker(showEndPicker, endDate, onChangeEnd, startDate)}
     </View>
   );
 }
 
-// Stylesheet for InputDatePicker component
+// Styles
 const styles = StyleSheet.create({
   container: {
     borderRadius: 8,
@@ -145,7 +149,6 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
     width: '100%',
   },
@@ -176,5 +179,28 @@ const styles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.5,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  pickerWrapper: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+  },
+  modalDoneButton: {
+    marginTop: 12,
+    backgroundColor: '#007AFF',
+    padding: 12,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  doneText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

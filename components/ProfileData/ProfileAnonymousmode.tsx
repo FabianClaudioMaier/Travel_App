@@ -92,8 +92,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingHorizontal: 10,
     borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#e6e6e6',
+
   },
   label: {
     fontSize: 14,

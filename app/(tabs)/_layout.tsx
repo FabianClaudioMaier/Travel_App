@@ -33,13 +33,13 @@ return (
           ),
         }}
       />
-      {/* Result Tab */}
+      {/* Profile Tab */}
       <Tabs.Screen
-        name="result"
+        name="travels"
         options={{
-          title: 'Result',
+          title: 'Saved',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="airplane" size={size} color={color} />
+            <Ionicons name="bookmark" size={size} color={color} />
           ),
         }}
       />
